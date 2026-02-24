@@ -248,14 +248,15 @@ def get_system_prompt(uid: str) -> str:
     try:
         if db:
             user_ref = db.collection("users").document(uid)
-            doc = user_ref.get()
+            doc = user_ref.get() # This might fail if quota is hit
             if doc.exists:
                 mode = doc.to_dict().get("learning_mode", LearningMode.STANDARD)
             else:
                 mode = LearningMode.STANDARD
         else:
             mode = LearningMode.STANDARD
-    except:
+    except Exception as e:
+        logger.warning(f"Firebase fetch failed (likely quota): {e}")
         mode = LearningMode.STANDARD
 
     if mode == LearningMode.REMEDIAL:
@@ -431,10 +432,14 @@ def chat(request: ChatRequest):
     system_prompt = get_system_prompt(request.uid)
     
     # RAG with specific textbook
-    context_text = get_relevant_context(request.message, request.textbook_id, request.current_chapter_name)
+    try:
+        context_text = get_relevant_context(request.message, request.textbook_id, request.current_chapter_name)
+    except Exception as e:
+        logger.warning(f"RAG Context fetch failed: {e}")
+        context_text = "[SYSTEM: DATABASE CURRENTLY UNAVAILABLE (Quota Exceeded). Responding with General Knowledge.]"
     
     if PDF_LOADING_STATUS == "loading" and not context_text:
-        context_text = "[SYSTEM: SYNC IN PROGRESS. Please wait a minute while I finish indexing the textbooks.]"
+        context_text = "[SYSTEM: SYNC IN PROGRESS. Please wait a minute.]"
     elif not context_text:
         context_text = "[SYSTEM: NO CONTEXT FOUND relevant to your question in this textbook.]"
 

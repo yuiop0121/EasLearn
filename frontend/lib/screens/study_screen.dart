@@ -6,6 +6,7 @@ import 'dart:html' as html; // For IFrame
 import 'dart:ui_web' as ui_web; // For platform view registry
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../constants.dart';
 
 class StudyScreen extends StatefulWidget {
   final String textbookId;
@@ -62,13 +63,13 @@ class _StudyScreenState extends State<StudyScreen> {
     });
     
     _scrollToBottom();
-
+ 
     try {
       final response = await http.post(
         Uri.parse('${provider.backendUrl}/chat'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "uid": provider.uid,
+          "uid": kUseDemoMode ? "demo_user" : provider.uid,
           "message": userMsg,
           "textbook_id": widget.textbookId,
           "current_chapter_name": widget.chapterTitle,

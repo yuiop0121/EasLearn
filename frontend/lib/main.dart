@@ -3,8 +3,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:ui_web' as ui_web; // For platform view registry
 import 'providers/user_provider.dart';
 import 'providers/chat_provider.dart';
+import 'constants.dart';
 import 'screens/login_screen.dart';
 import 'screens/level_selection_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -71,8 +73,10 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      stream: kUseDemoMode ? Stream.value(null) : FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
+        if (kUseDemoMode) return const LevelSelectionScreen();
+        
         if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }

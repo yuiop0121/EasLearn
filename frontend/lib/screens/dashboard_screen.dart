@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../providers/user_provider.dart';
+import '../constants.dart';
 import 'study_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> _chapters = [];
   bool _isLoading = true;
   String _pdfLink = "";
+  String _title = "EasLearn";
 
   @override
   void initState() {
@@ -35,6 +37,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _fetchChapters() async {
+    if (kUseDemoMode) {
+      setState(() {
+        _title = kMockChapters['title'];
+        _pdfLink = kMockChapters['pdf_drive_link'];
+        final Map<String, int> chapterMap = Map<String, int>.from(kMockChapters['chapters']);
+        final List<Map<String, dynamic>> loadedChapters = [];
+        chapterMap.forEach((key, value) {
+            loadedChapters.add({
+                "title": key,
+                "page": value,
+            });
+        });
+        loadedChapters.sort((a, b) => (a['page'] as int).compareTo(b['page'] as int));
+        _chapters = loadedChapters;
+        _isLoading = false;
+      });
+      return;
+    }
+
     final provider = Provider.of<UserProvider>(context, listen: false);
     try {
       final response = await http.get(Uri.parse('${provider.backendUrl}/chapters?textbook_id=${widget.textbookId}'));
@@ -43,6 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final data = jsonDecode(response.body);
         final chaptersMap = data['chapters'] as Map<String, dynamic>;
         _pdfLink = data['pdf_drive_link'] ?? "";
+        _title = data['title'] ?? "EasLearn Dashboard"; // Update title from backend
 
         final List<Map<String, dynamic>> loadedChapters = [];
         chaptersMap.forEach((key, value) {
@@ -73,7 +95,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("EasLearn Dashboard"),
+        title: Text(kUseDemoMode ? "$_title (Demo)" : _title),
+        backgroundColor: kUseDemoMode ? Colors.orange : null,
         actions: [
             Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
