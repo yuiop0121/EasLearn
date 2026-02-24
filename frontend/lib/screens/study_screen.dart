@@ -8,12 +8,14 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 
 class StudyScreen extends StatefulWidget {
+  final String textbookId;
   final String chapterTitle;
   final String pdfUrl;
   final int pageNumber;
 
   const StudyScreen({
     super.key,
+    required this.textbookId,
     required this.chapterTitle,
     required this.pdfUrl,
     required this.pageNumber,
@@ -68,6 +70,7 @@ class _StudyScreenState extends State<StudyScreen> {
         body: jsonEncode({
           "uid": provider.uid,
           "message": userMsg,
+          "textbook_id": widget.textbookId,
           "current_chapter_name": widget.chapterTitle,
           "history": [] 
         }),

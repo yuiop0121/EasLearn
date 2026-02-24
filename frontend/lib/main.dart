@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'providers/user_provider.dart';
 import 'providers/chat_provider.dart';
 import 'screens/login_screen.dart';
+import 'screens/level_selection_screen.dart';
 import 'screens/dashboard_screen.dart';
 
 // IMPORTANT: Replace these with your actual Firebase configuration
@@ -77,9 +78,7 @@ class AuthWrapper extends StatelessWidget {
         }
         
         if (snapshot.hasData) {
-            // Update UserProvider with basic info? 
-            // Better to do this in dashboard init or post-login, but here is a safe check
-            return const DashboardScreen();
+            return const LevelSelectionScreen();
         }
         
         return const LoginScreen();

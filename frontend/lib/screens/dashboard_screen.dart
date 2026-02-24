@@ -7,7 +7,8 @@ import '../providers/user_provider.dart';
 import 'study_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final String textbookId;
+  const DashboardScreen({super.key, required this.textbookId});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -36,7 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _fetchChapters() async {
     final provider = Provider.of<UserProvider>(context, listen: false);
     try {
-      final response = await http.get(Uri.parse('${provider.backendUrl}/chapters'));
+      final response = await http.get(Uri.parse('${provider.backendUrl}/chapters?textbook_id=${widget.textbookId}'));
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -111,6 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             context,
                             MaterialPageRoute(
                                 builder: (context) => StudyScreen(
+                                    textbookId: widget.textbookId,
                                     chapterTitle: chapter['title'],
                                     pdfUrl: _pdfLink,
                                     pageNumber: chapter['page'],

@@ -30,7 +30,8 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     uid: str
     message: str
-    current_chapter_name: Optional[str] = None # Renamed/Added per spec
+    textbook_id: str # Required to know which book to use for RAG
+    current_chapter_name: Optional[str] = None
     history: List[ChatMessage] = []
 
 class QuizGenerationRequest(BaseModel):

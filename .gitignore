@@ -32,3 +32,7 @@ frontend/web/
 # Firebase
 backend/serviceAccountKey.json
 firebase-debug.log
+
+# Local Assets & Scripts
+backend/static/
+backend/add_textbook.py

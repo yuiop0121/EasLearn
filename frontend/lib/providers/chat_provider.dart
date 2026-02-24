@@ -25,7 +25,7 @@ class ChatProvider extends ChangeNotifier {
   String get currentMode => _currentMode;
 
   // 1. Send Message
-  Future<void> sendMessage(String text, String uid, String chapter) async {
+  Future<void> sendMessage(String text, String uid, String textbookId, String chapter) async {
     if (text.trim().isEmpty) return;
 
     // Add user message locally
@@ -40,6 +40,7 @@ class ChatProvider extends ChangeNotifier {
         body: jsonEncode({
           "uid": uid,
           "message": text,
+          "textbook_id": textbookId,
           "current_chapter_name": chapter,
           "history": _messages.take(_messages.length - 1).map((m) => m.toJson()).toList(),
         }),
@@ -68,7 +69,7 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // 3. Regenerate Response
-  Future<void> regenerateResponse(String uid, String chapter) async {
+  Future<void> regenerateResponse(String uid, String textbookId, String chapter) async {
     if (_messages.isEmpty || _messages.last.role != 'model') return;
 
     // Remove last AI response
@@ -88,6 +89,7 @@ class ChatProvider extends ChangeNotifier {
         body: jsonEncode({
           "uid": uid,
           "message": lastUserMsg.content,
+          "textbook_id": textbookId,
           "current_chapter_name": chapter,
           "history": _messages.take(_messages.length - 1).map((m) => m.toJson()).toList(),
         }),

@@ -51,9 +51,10 @@ os.makedirs(STATIC_DIR, exist_ok=True)
 SERVICE_ACCOUNT_KEY = os.path.join(BASE_DIR, "serviceAccountKey.json")
 GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY") 
 
-LOCAL_PDF_PATH = os.path.join(STATIC_DIR, "server_textbook.pdf")
-TEXTBOOK_CONTENT = {} # Cache for RAG: {page_num: text} 
-CHAPTER_MAP = {} # Dynamic map: {"Bab 1": 1, ...}
+# Multi-Textbook Configuration
+TEXTBOOKS = {} # {textbook_id: {page_num: text}}
+CHAPTER_MAPS = {} # {textbook_id: {"Bab 1": 1, ...}}
+TEXTBOOK_METADATA = {} # {textbook_id: {title, level, subject, pdf_url}}
 db = None
 model = None 
 
@@ -73,7 +74,7 @@ PDF_LOADING_STATUS = "pending"
 import gc
 
 async def load_pdf_background():
-    global TEXTBOOK_CONTENT, PDF_LOADING_STATUS, CHAPTER_MAP
+    global TEXTBOOKS, PDF_LOADING_STATUS, CHAPTER_MAPS, TEXTBOOK_METADATA
     PDF_LOADING_STATUS = "loading"
     try:
         if not db:
@@ -81,106 +82,119 @@ async def load_pdf_background():
              PDF_LOADING_STATUS = "failed_no_db"
              return
 
-        doc_ref = db.collection("content").document("textbook_v1")
+        # Load all textbooks from "textbooks" collection
+        logger.info("Syncing all textbooks from Firestore...")
+        textbooks_ref = db.collection("textbooks")
+        docs = textbooks_ref.stream()
         
-        # 1. TRY LOADING FROM FIRESTORE FIRST
-        logger.info("Checking Firestore for cached indexing...")
-        pages_ref = doc_ref.collection("pages")
-        existing_pages = pages_ref.limit(350).get() # Get all indexed pages
-        
-        if len(existing_pages) > 200:
-            logger.info(f"Loading {len(existing_pages)} pages from Firestore cache...")
-            content = {}
-            for doc in existing_pages:
-                content[int(doc.id)] = doc.to_dict().get("text", "")
+        found_any = False
+        for doc in docs:
+            found_any = True
+            textbook_id = doc.id
+            data = doc.to_dict()
             
-            # Load Chapter Map
-            main_doc = doc_ref.get()
-            ch_map = main_doc.to_dict().get("chapters_map", {})
+            TEXTBOOK_METADATA[textbook_id] = {
+                "title": data.get("title", "Untitled"),
+                "level": data.get("level", "Unknown"),
+                "subject": data.get("subject", "Unknown"),
+                "pdf_url": data.get("pdf_drive_link")
+            }
             
-            TEXTBOOK_CONTENT = content
-            CHAPTER_MAP = ch_map
+            pages_ref = doc.reference.collection("pages")
+            existing_pages = pages_ref.limit(500).get()
             
-            # 1b. ENSURE LOCAL PDF EXISTS (for the static viewer)
-            if not os.path.exists(LOCAL_PDF_PATH):
-                doc_data = main_doc.to_dict()
-                pdf_url = doc_data.get("pdf_drive_link")
-                if pdf_url:
-                    logger.info("Local PDF missing despite cache. Restoring file for static viewer...")
-                    download_url = convert_gdrive_url(pdf_url)
-                    with requests.get(download_url, stream=True) as r:
-                         r.raise_for_status()
-                         with open(LOCAL_PDF_PATH, "wb") as f:
-                             for chunk in r.iter_content(chunk_size=8192):
-                                 f.write(chunk)
-                    logger.info("Static PDF file restored from remote.")
-
-            PDF_LOADING_STATUS = "completed_from_cache"
-            logger.info("Textbook loaded from persistent cache.")
-            return
-
-        # 2. IF NOT IN CACHE, DOWNLOAD AND EXTRACT
-        doc_data = doc_ref.get().to_dict()
-        pdf_url = doc_data.get("pdf_drive_link")
-        
-        if not os.path.exists(LOCAL_PDF_PATH) and pdf_url:
-            download_url = convert_gdrive_url(pdf_url)
-            logger.info(f"Downloading PDF from {download_url}...")
-            with requests.get(download_url, stream=True) as r:
-                r.raise_for_status()
-                with open(LOCAL_PDF_PATH, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
-            logger.info("PDF Downloaded.")
-            gc.collect()
-
-        if os.path.exists(LOCAL_PDF_PATH):
-            logger.info("Extrating and Uploading to Firestore...")
-            def extract_and_save():
+            if len(existing_pages) > 0:
+                logger.info(f"Loading {len(existing_pages)} pages for {textbook_id} from cache...")
                 content = {}
-                ch_map = {}
-                try:
-                    reader = PdfReader(LOCAL_PDF_PATH)
-                    batch = db.batch()
-                    count = 0
-                    for i, page in enumerate(reader.pages):
-                        text = page.extract_text()
-                        if text:
-                            pg_num = i + 1
-                            content[pg_num] = text
-                            
-                            # Detect Chapter starts: Strictly Bab 1 to Bab 10
-                            ch_match = re.search(r'(?i)Bab\s+([1-9]|10)\b', text[:500])
-                            if ch_match:
-                                ch_name = f"Bab {ch_match.group(1)}"
-                                if ch_name not in ch_map:
-                                    ch_map[ch_name] = pg_num
+                for p_doc in existing_pages:
+                    content[int(p_doc.id)] = p_doc.to_dict().get("text", "")
+                
+                TEXTBOOKS[textbook_id] = content
+                CHAPTER_MAPS[textbook_id] = data.get("chapters_map", {})
+                
+                # Ensure local PDF for static viewer (using ID in filename)
+                local_path = os.path.join(STATIC_DIR, f"{textbook_id}.pdf")
+                if not os.path.exists(local_path):
+                    pdf_url = data.get("pdf_drive_link")
+                    if pdf_url:
+                        logger.info(f"Restoring PDF file for {textbook_id}...")
+                        download_url = convert_gdrive_url(pdf_url)
+                        try:
+                            with requests.get(download_url, stream=True) as r:
+                                 r.raise_for_status()
+                                 with open(local_path, "wb") as f:
+                                     for chunk in r.iter_content(chunk_size=8192):
+                                         f.write(chunk)
+                        except Exception as e:
+                            logger.error(f"Failed to restore PDF for {textbook_id}: {e}")
+            else:
+                # NEW BOOK: Download and Extract
+                pdf_url = data.get("pdf_drive_link")
+                if pdf_url:
+                    logger.info(f"New textbook detected: {textbook_id}. Starting extraction...")
+                    local_path = os.path.join(STATIC_DIR, f"{textbook_id}.pdf")
+                    download_url = convert_gdrive_url(pdf_url)
+                    
+                    try:
+                        # 1. Download
+                        with requests.get(download_url, stream=True) as r:
+                            r.raise_for_status()
+                            with open(local_path, "wb") as f:
+                                for chunk in r.iter_content(chunk_size=8192):
+                                    f.write(chunk)
+                        
+                        # 2. Extract
+                        reader = PdfReader(local_path)
+                        batch = db.batch()
+                        content = {}
+                        ch_map = {}
+                        count = 0
+                        
+                        for i, page in enumerate(reader.pages):
+                            text = page.extract_text()
+                            if text:
+                                pg_num = i + 1
+                                content[pg_num] = text
+                                ch_match = re.search(r'(?i)Bab\s+([1-9]|10)\b', text[:500])
+                                if ch_match:
+                                    ch_name = f"Bab {ch_match.group(1)}"
+                                    if ch_name not in ch_map:
+                                        ch_map[ch_name] = pg_num
+                                
+                                batch.set(pages_ref.document(str(pg_num)), {"text": text})
+                                count += 1
+                                if count % 50 == 0:
+                                    batch.commit()
+                                    batch = db.batch()
+                        
+                        batch.commit()
+                        doc.reference.update({"chapters_map": ch_map})
+                        
+                        TEXTBOOKS[textbook_id] = content
+                        CHAPTER_MAPS[textbook_id] = ch_map
+                        logger.info(f"Extraction complete for {textbook_id}: {count} pages.")
+                    except Exception as e:
+                        logger.error(f"Failed to extract {textbook_id}: {e}")
 
-                            # Save to Firestore (Batch to reduce calls)
-                            pg_doc_ref = pages_ref.document(str(pg_num))
-                            batch.set(pg_doc_ref, {"text": text})
-                            count += 1
-                            
-                            # Firestore batch limit is 500, but we'll commit every 50 to save memory
-                            if count % 50 == 0:
-                                batch.commit()
-                                batch = db.batch()
-                                gc.collect()
-                    
-                    batch.commit() # Final batch
-                    
-                    # Store chapter map in main doc
-                    doc_ref.update({"chapters_map": ch_map})
-                    
-                except Exception as e:
-                    logger.error(f"Extraction/Upload Error: {e}")
-                    return {}, {}
-                return content, ch_map
+        if not found_any:
+            # Migration/Bootstrap: If "textbooks" is empty, move "textbook_v1" into it
+            logger.info("No textbooks found in new collection. Bootstrapping from legacy...")
+            legacy_ref = db.collection("content").document("textbook_v1")
+            legacy_data = legacy_ref.get()
+            if legacy_data.exists:
+                # Move to textbooks/sejarah_f4
+                db.collection("textbooks").document("sejarah_f4").set({
+                    "title": "Sejarah Tingkatan 4",
+                    "level": "Form 4",
+                    "subject": "Sejarah",
+                    **legacy_data.to_dict()
+                })
+                # Re-run after bootstrap
+                return await load_pdf_background()
 
-            TEXTBOOK_CONTENT, CHAPTER_MAP = await asyncio.to_thread(extract_and_save)
-            logger.info(f"Sync Complete: {len(TEXTBOOK_CONTENT)} pages saved to Firestore.")
-            PDF_LOADING_STATUS = "completed"
-            gc.collect()
+        PDF_LOADING_STATUS = "completed"
+        logger.info(f"Multi-Textbook Sync Complete. Loaded {len(TEXTBOOKS)} books.")
+        return
     except Exception as e:
         logger.error(f"Background PDF Sync Failed: {e}")
         PDF_LOADING_STATUS = f"failed_error: {str(e)}"
@@ -257,11 +271,17 @@ def get_system_prompt(uid: str) -> str:
         )
 
 
-def get_relevant_context(query: str, chapter_name: Optional[str] = None) -> str:
+def get_relevant_context(query: str, textbook_id: str, chapter_name: Optional[str] = None) -> str:
     """
-    Enhanced RAG with Dynamic Chapter Map and Fallback.
+    Enhanced RAG with Multi-Textbook support.
     """
-    relevant_text = []
+    if textbook_id not in TEXTBOOKS:
+        logger.warning(f"Textbook ID {textbook_id} not loaded.")
+        return ""
+
+    content_dict = TEXTBOOKS[textbook_id]
+    ch_map = CHAPTER_MAPS.get(textbook_id, {})
+    
     raw_keywords = query.split()
     keywords = []
     for k in raw_keywords:
@@ -275,60 +295,49 @@ def get_relevant_context(query: str, chapter_name: Optional[str] = None) -> str:
                  if len(part) > 3 or any(char.isdigit() for char in part):
                       keywords.append(part)
     
-    logger.info(f"RAG Keywords: {keywords} | Chapter Filter: {chapter_name}")
-    
     hits = []
     
-    # Use Dynamic CHAPTER_MAP
     target_page = 0
     if chapter_name:
         short_name_match = re.search(r'(?i)Bab\s+(\d+)', chapter_name)
         if short_name_match:
             short_name = f"Bab {short_name_match.group(1)}"
-            target_page = CHAPTER_MAP.get(short_name, 0)
+            target_page = ch_map.get(short_name, 0)
     
-    logger.info(f"RAG Target Page for {chapter_name}: {target_page}")
-    
-    for page_num, text in TEXTBOOK_CONTENT.items():
+    for page_num, text in content_dict.items():
         score = 0
         text_lower = text.lower()
         
-        # 1. Keyword Scoring
         for k in keywords:
             if k in text_lower:
                 score += 5
                 if re.search(rf'\b{re.escape(k)}\b', text_lower):
                     score += 10
             
-            # Fuzzy match for subtopics (e.g. "10.5" might be "1 0 . 5")
             if "." in k and all(c.isdigit() or c == "." for c in k):
-                # Regex to match digits with potential spaces
                 parts = k.split(".")
                 fuzzy_re = r'\s*'.join(parts[0]) + r'\s*\.\s*' + r'\s*'.join(parts[1])
                 if re.search(fuzzy_re, text_lower):
                     score += 15
-                    logger.info(f"Fuzzy subtopic match: {k} on Page {page_num}")
 
-        # 2. Chapter Proximity Boost (Widened to 30 pages)
         if target_page > 0 and target_page <= page_num < target_page + 30:
              score += 5
              
-        # 3. Chapter Title Boost
         if chapter_name and chapter_name.lower() in text_lower:
              score += 15
              
         if score > 0:
             hits.append((score, page_num, text))
     
-    # Sort by score desc
     hits.sort(key=lambda x: x[0], reverse=True)
     
-    # Fallback: If no hits but we have a chapter, return first 3 pages of chapter
     if not hits and target_page > 0:
-        logger.info(f"No keyword hits. Falling back to start of {chapter_name}")
         for p in range(target_page, target_page + 3):
-            if p in TEXTBOOK_CONTENT:
-                hits.append((1, p, TEXTBOOK_CONTENT[p]))
+            if p in content_dict:
+                hits.append((1, p, content_dict[p]))
+
+    top_hits = hits[:3]
+    return "\n---\n".join([f"Page {h[1]}: {h[2]}" for h in top_hits])
 
     # Take top 3 pages
     top_hits = hits[:3]
@@ -344,8 +353,7 @@ def home():
     return {
         "status": "EasLearn Backend Running", 
         "pdf_status": PDF_LOADING_STATUS,
-        "total_pages": len(TEXTBOOK_CONTENT),
-        "chapters_detected": list(CHAPTER_MAP.keys())
+        "textbooks_loaded": list(TEXTBOOKS.keys())
     }
 
 @app.get("/debug/rag")
@@ -382,70 +390,69 @@ def auth_login(request: LoginRequest):
 
 # ... (rest of endpoints)
 
+@app.get("/textbooks")
+def get_all_textbooks():
+    """Returns hierarchy of Level -> Subject -> TextbookID."""
+    hierarchy = {}
+    for tid, meta in TEXTBOOK_METADATA.items():
+        level = meta["level"]
+        subject = meta["subject"]
+        if level not in hierarchy:
+            hierarchy[level] = {}
+        if subject not in hierarchy[level]:
+            hierarchy[level][subject] = tid
+    return hierarchy
+
 @app.get("/chapters")
-def get_chapters(request: Request):
+def get_chapters(textbook_id: str, request: Request):
     if not db:
         raise HTTPException(status_code=503, detail="Database unavailable")
     
-    # Construct local URL for PDF
+    if textbook_id not in TEXTBOOK_METADATA:
+        raise HTTPException(status_code=404, detail="Textbook not found")
+
     base_url = str(request.base_url).rstrip("/")
     if "rend" in base_url or "https" not in base_url and "localhost" not in base_url:
          base_url = base_url.replace("http://", "https://")
          
-    # In production (Render), this will be the https URL
-    # locally, http://localhost:8000
-    pdf_filename = os.path.basename(LOCAL_PDF_PATH)
-    pdf_link = f"{base_url}/static/{pdf_filename}"
-
-    doc = db.collection("content").document("textbook_v1").get()
-    if doc.exists:
-        data = doc.to_dict()
-        return {
-            "chapters": data.get("chapters", {}),
-            "pdf_drive_link": pdf_link # Return local static link instead of GDrive
-        }
-    else:
-        # Return fallback/demo data if DB empty
-        return {
-            "chapters": {
-                "Bab 1: Warisan Negara Bangsa": 1,
-                "Bab 2: Kebangkitan Nasionalisme": 22
-            },
-            "pdf_drive_link": pdf_link
-        }
+    pdf_link = f"{base_url}/static/{textbook_id}.pdf"
+    
+    return {
+        "chapters": CHAPTER_MAPS.get(textbook_id, {}),
+        "pdf_drive_link": pdf_link,
+        "title": TEXTBOOK_METADATA[textbook_id]["title"]
+    }
 
 @app.post("/chat")
 def chat(request: ChatRequest):
     if not model:
         raise HTTPException(status_code=503, detail="AI Model unavailable")
     
-    # 1. Get Prompt
     system_prompt = get_system_prompt(request.uid)
     
-    # 2. RAG
-    context_text = get_relevant_context(request.message, request.current_chapter_name)
+    # RAG with specific textbook
+    context_text = get_relevant_context(request.message, request.textbook_id, request.current_chapter_name)
     
-    # Check if we are still loading the PDF to give a better error message
     if PDF_LOADING_STATUS == "loading" and not context_text:
-        pages_count = len(TEXTBOOK_CONTENT)
-        context_text = f"[SYSTEM: TEXTBOOK SYNC IN PROGRESS. I have only indexed {pages_count} pages so far. Please wait a minute while I finish reading the rest of the syllabus!]"
+        context_text = "[SYSTEM: SYNC IN PROGRESS. Please wait a minute while I finish indexing the textbooks.]"
     elif not context_text:
-        context_text = "[SYSTEM: NO CONTEXT FOUND. The requested topic was not found in the indexed pages of the textbook. Please try asking about a different subtopic or chapter title.]"
+        context_text = "[SYSTEM: NO CONTEXT FOUND relevant to your question in this textbook.]"
 
-    
-    # 3. Generate
     history_text = ""
     for msg in request.history:
-        role_label = "USER" if msg.role == "user" else "CIKGU"
+        role_label = "USER" if msg.role == "user" else "EasLearn"
         history_text += f"{role_label}: {msg.content}\n"
+
+    meta = TEXTBOOK_METADATA.get(request.textbook_id, {})
+    subject = meta.get("subject", "General")
 
     full_prompt = f"""
     SYSTEM: {system_prompt}
-    SUBJECT: Sejarah Tingkatan 4 (KSSM)
+    SUBJECT: {subject}
     
     CURRENT CHAPTER: {request.current_chapter_name}
-    IMPORTANT: You are an expert tutor for this specific chapter. 
-    1. EXPLAIN ONLY what is in the provided context for this chapter.
+    IMPORTANT: You are an expert tutor for {subject}. 
+    1. EXPLAIN ONLY what is in the provided context for this textbook.
     2. IF the user asks about the chapter title, USE THE EXACT TITLE provided above ({request.current_chapter_name}).
     3. SUBCONTEXT: If the text provided is insufficient, acknowledge it, but do NOT invent a different chapter title.
     
@@ -460,15 +467,11 @@ def chat(request: ChatRequest):
     
     try:
         response = model.generate_content(full_prompt)
-        # Determine mode used for frontend display
-        mode = "Remedial" if "Abang" in system_prompt else "Standard"
+        mode = "Remedial" if "Abang" in system_prompt or "Buddy" in system_prompt else "Standard"
         return {"response": response.text, "mode_used": mode}
     except Exception as e:
-        error_msg = str(e)
-        logger.error(f"Chat Error: {error_msg}")
-        if "429" in error_msg or "Quota" in error_msg:
-             raise HTTPException(status_code=429, detail="Quota Exceeded. Please wait a moment.")
-        raise HTTPException(status_code=500, detail=error_msg)
+        logger.error(f"Chat Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/quiz/generate")
 def quiz_generate(request: QuizGenerationRequest):
