@@ -372,6 +372,14 @@ def chat(request: ChatRequest):
     # 2. RAG
     context_text = get_relevant_context(request.message, request.current_chapter_name)
     
+    # Check if we are still loading the PDF to give a better error message
+    if PDF_LOADING_STATUS == "loading" and not context_text:
+        pages_count = len(TEXTBOOK_CONTENT)
+        context_text = f"[SYSTEM: TEXTBOOK SYNC IN PROGRESS. I have only indexed {pages_count} pages so far. Please wait a minute while I finish reading the rest of the syllabus!]"
+    elif not context_text:
+        context_text = "[SYSTEM: NO CONTEXT FOUND. The requested topic was not found in the indexed pages of the textbook. Please try asking about a different subtopic or chapter title.]"
+
+    
     # 3. Generate
     history_text = ""
     for msg in request.history:
