@@ -54,7 +54,22 @@ GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
 # Multi-Textbook Configuration
 TEXTBOOKS = {} # {textbook_id: {page_num: text}}
 CHAPTER_MAPS = {} # {textbook_id: {"Bab 1": 1, ...}}
-TEXTBOOK_METADATA = {} # {textbook_id: {title, level, subject, pdf_url}}
+
+# Backend Shadow Data (Used when Firestore is unreachable)
+TEXTBOOK_METADATA = {
+    "sejarah_f4": {
+        "title": "Sejarah Tingkatan 4",
+        "level": "Form 4",
+        "subject": "Sejarah",
+        "pdf_url": "https://drive.google.com/file/d/1X5Xzq..." 
+    },
+    "physics_f5": {
+        "title": "Physics Form 5",
+        "level": "Form 5",
+        "subject": "Physics",
+        "pdf_url": "https://drive.google.com/file/d/1IPqXd..."
+    }
+}
 db = None
 model = None 
 
@@ -120,7 +135,8 @@ async def load_pdf_background():
                         logger.info(f"Restoring PDF file for {textbook_id}...")
                         download_url = convert_gdrive_url(pdf_url)
                         try:
-                            with requests.get(download_url, stream=True) as r:
+                            # Added timeout to avoid hanging the task
+                            with requests.get(download_url, stream=True, timeout=30) as r:
                                  r.raise_for_status()
                                  with open(local_path, "wb") as f:
                                      for chunk in r.iter_content(chunk_size=8192):
@@ -137,7 +153,7 @@ async def load_pdf_background():
                     
                     try:
                         # 1. Download
-                        with requests.get(download_url, stream=True) as r:
+                        with requests.get(download_url, stream=True, timeout=60) as r:
                             r.raise_for_status()
                             with open(local_path, "wb") as f:
                                 for chunk in r.iter_content(chunk_size=8192):
@@ -401,7 +417,11 @@ def auth_login(request: LoginRequest):
 def get_all_textbooks():
     """Returns hierarchy of Level -> Subject -> TextbookID."""
     hierarchy = {}
-    for tid, meta in TEXTBOOK_METADATA.items():
+    
+    # Use live metadata if available, otherwise fallback to shadow metadata
+    source_meta = TEXTBOOK_METADATA
+    
+    for tid, meta in source_meta.items():
         level = meta["level"]
         subject = meta["subject"]
         if level not in hierarchy:

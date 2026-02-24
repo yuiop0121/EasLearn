@@ -75,7 +75,7 @@ class _StudyScreenState extends State<StudyScreen> {
           "current_chapter_name": widget.chapterTitle,
           "history": [] 
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
