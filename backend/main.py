@@ -134,8 +134,8 @@ async def load_pdf_background():
                             pg_num = i + 1
                             content[pg_num] = text
                             
-                            # Detect Chapter starts
-                            ch_match = re.search(r'(?i)Bab\s+(\d+)', text[:500])
+                            # Detect Chapter starts: Strictly Bab 1 to Bab 10
+                            ch_match = re.search(r'(?i)Bab\s+([1-9]|10)\b', text[:500])
                             if ch_match:
                                 ch_name = f"Bab {ch_match.group(1)}"
                                 if ch_name not in ch_map:
