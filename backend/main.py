@@ -267,7 +267,6 @@ def get_relevant_context(query: str, chapter_name: Optional[str] = None) -> str:
     # Use Dynamic CHAPTER_MAP
     target_page = 0
     if chapter_name:
-        # Normalize chapter name, e.g. "Bab 3: ..." -> "Bab 3"
         short_name_match = re.search(r'(?i)Bab\s+(\d+)', chapter_name)
         if short_name_match:
             short_name = f"Bab {short_name_match.group(1)}"
@@ -278,17 +277,28 @@ def get_relevant_context(query: str, chapter_name: Optional[str] = None) -> str:
     for page_num, text in TEXTBOOK_CONTENT.items():
         score = 0
         text_lower = text.lower()
+        
+        # 1. Keyword Scoring
         for k in keywords:
             if k in text_lower:
                 score += 5
                 if re.search(rf'\b{re.escape(k)}\b', text_lower):
                     score += 10
-        
-        # Boost if page is within likely chapter range (30 pages)
+            
+            # Fuzzy match for subtopics (e.g. "10.5" might be "1 0 . 5")
+            if "." in k and all(c.isdigit() or c == "." for c in k):
+                # Regex to match digits with potential spaces
+                parts = k.split(".")
+                fuzzy_re = r'\s*'.join(parts[0]) + r'\s*\.\s*' + r'\s*'.join(parts[1])
+                if re.search(fuzzy_re, text_lower):
+                    score += 15
+                    logger.info(f"Fuzzy subtopic match: {k} on Page {page_num}")
+
+        # 2. Chapter Proximity Boost (Widened to 30 pages)
         if target_page > 0 and target_page <= page_num < target_page + 30:
              score += 5
              
-        # Boost if page contains chapter title explicitly
+        # 3. Chapter Title Boost
         if chapter_name and chapter_name.lower() in text_lower:
              score += 15
              
