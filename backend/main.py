@@ -76,72 +76,100 @@ async def load_pdf_background():
     global TEXTBOOK_CONTENT, PDF_LOADING_STATUS, CHAPTER_MAP
     PDF_LOADING_STATUS = "loading"
     try:
-        # Re-verify DB connection inside task if needed, or rely on global 'db'
         if not db:
              logger.error("DB not initialized in background task")
              PDF_LOADING_STATUS = "failed_no_db"
              return
 
         doc_ref = db.collection("content").document("textbook_v1")
-        doc = doc_ref.get()
-        if doc.exists:
-            data = doc_ref.get().to_dict()
-            pdf_url = data.get("pdf_drive_link")
+        
+        # 1. TRY LOADING FROM FIRESTORE FIRST
+        logger.info("Checking Firestore for cached indexing...")
+        pages_ref = doc_ref.collection("pages")
+        existing_pages = pages_ref.limit(350).get() # Get all indexed pages
+        
+        if len(existing_pages) > 200:
+            logger.info(f"Loading {len(existing_pages)} pages from Firestore cache...")
+            content = {}
+            for doc in existing_pages:
+                content[int(doc.id)] = doc.to_dict().get("text", "")
             
-            if not os.path.exists(LOCAL_PDF_PATH) and pdf_url:
-                download_url = convert_gdrive_url(pdf_url)
-                logger.info(f"Downloading PDF from {download_url}...")
-                
-                # Stream download to avoid loading entire file into RAM
-                with requests.get(download_url, stream=True) as r:
-                    r.raise_for_status()
-                    with open(LOCAL_PDF_PATH, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                
-                logger.info("PDF Downloaded.")
-                gc.collect() # Force cleanup after download
+            # Load Chapter Map
+            main_doc = doc_ref.get()
+            ch_map = main_doc.to_dict().get("chapters_map", {})
             
-            if os.path.exists(LOCAL_PDF_PATH):
-                logger.info("Extracting text from PDF...")
-                def extract_text():
-                    content = {}
-                    ch_map = {}
-                    try:
-                        reader = PdfReader(LOCAL_PDF_PATH)
-                        for i, page in enumerate(reader.pages):
-                            text = page.extract_text()
-                            if text:
-                                pg_num = i + 1
-                                content[pg_num] = text
-                                
-                                # Detect Chapter starts: "Bab 3" or "BAB 3" or "Bab 3:"
-                                ch_match = re.search(r'(?i)Bab\s+(\d+)', text[:500])
-                                if ch_match:
-                                    ch_name = f"Bab {ch_match.group(1)}"
-                                    if ch_name not in ch_map:
-                                        ch_map[ch_name] = pg_num
-                                        logger.info(f"Detected {ch_name} at Page {pg_num}")
-                                
-                            # Periodic GC every 50 pages
-                            if i % 50 == 0:
-                                gc.collect()
-                    except Exception as extraction_err:
-                        logger.error(f"Extraction Error: {extraction_err}")
-                        return {}, {}
-                    
-                    return content, ch_map
+            TEXTBOOK_CONTENT = content
+            CHAPTER_MAP = ch_map
+            PDF_LOADING_STATUS = "completed_from_cache"
+            logger.info("Textbook loaded from persistent cache.")
+            return
 
-                TEXTBOOK_CONTENT, CHAPTER_MAP = await asyncio.to_thread(extract_text)
-                logger.info(f"Extracted {len(TEXTBOOK_CONTENT)} pages and {len(CHAPTER_MAP)} chapters.")
-                gc.collect() # Final cleanup
-                PDF_LOADING_STATUS = "completed"
-        else:
-            logger.warning("textbook_v1 document not found in Firestore.")
-            PDF_LOADING_STATUS = "not_found"
+        # 2. IF NOT IN CACHE, DOWNLOAD AND EXTRACT
+        doc_data = doc_ref.get().to_dict()
+        pdf_url = doc_data.get("pdf_drive_link")
+        
+        if not os.path.exists(LOCAL_PDF_PATH) and pdf_url:
+            download_url = convert_gdrive_url(pdf_url)
+            logger.info(f"Downloading PDF from {download_url}...")
+            with requests.get(download_url, stream=True) as r:
+                r.raise_for_status()
+                with open(LOCAL_PDF_PATH, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+            logger.info("PDF Downloaded.")
+            gc.collect()
+
+        if os.path.exists(LOCAL_PDF_PATH):
+            logger.info("Extrating and Uploading to Firestore...")
+            def extract_and_save():
+                content = {}
+                ch_map = {}
+                try:
+                    reader = PdfReader(LOCAL_PDF_PATH)
+                    batch = db.batch()
+                    count = 0
+                    for i, page in enumerate(reader.pages):
+                        text = page.extract_text()
+                        if text:
+                            pg_num = i + 1
+                            content[pg_num] = text
+                            
+                            # Detect Chapter starts
+                            ch_match = re.search(r'(?i)Bab\s+(\d+)', text[:500])
+                            if ch_match:
+                                ch_name = f"Bab {ch_match.group(1)}"
+                                if ch_name not in ch_map:
+                                    ch_map[ch_name] = pg_num
+
+                            # Save to Firestore (Batch to reduce calls)
+                            pg_doc_ref = pages_ref.document(str(pg_num))
+                            batch.set(pg_doc_ref, {"text": text})
+                            count += 1
+                            
+                            # Firestore batch limit is 500, but we'll commit every 50 to save memory
+                            if count % 50 == 0:
+                                batch.commit()
+                                batch = db.batch()
+                                gc.collect()
+                    
+                    batch.commit() # Final batch
+                    
+                    # Store chapter map in main doc
+                    doc_ref.update({"chapters_map": ch_map})
+                    
+                except Exception as e:
+                    logger.error(f"Extraction/Upload Error: {e}")
+                    return {}, {}
+                return content, ch_map
+
+            TEXTBOOK_CONTENT, CHAPTER_MAP = await asyncio.to_thread(extract_and_save)
+            logger.info(f"Sync Complete: {len(TEXTBOOK_CONTENT)} pages saved to Firestore.")
+            PDF_LOADING_STATUS = "completed"
+            gc.collect()
     except Exception as e:
         logger.error(f"Background PDF Sync Failed: {e}")
         PDF_LOADING_STATUS = f"failed_error: {str(e)}"
+
 
 @app.on_event("startup")
 async def startup_event():
