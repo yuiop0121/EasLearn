@@ -245,10 +245,15 @@ def get_system_prompt(uid: str) -> str:
     """
     Fetches user's learning mode and returns appropriate system prompt.
     """
+    # If we are in demo mode or firebase is acting up, return standard immediately
+    if uid == "demo_user":
+        return LearningMode.STANDARD
+
     try:
         if db:
+            # Add a timeout to the firestore call to avoid hanging
             user_ref = db.collection("users").document(uid)
-            doc = user_ref.get() # This might fail if quota is hit
+            doc = user_ref.get(timeout=5) 
             if doc.exists:
                 mode = doc.to_dict().get("learning_mode", LearningMode.STANDARD)
             else:
@@ -256,7 +261,7 @@ def get_system_prompt(uid: str) -> str:
         else:
             mode = LearningMode.STANDARD
     except Exception as e:
-        logger.warning(f"Firebase fetch failed (likely quota): {e}")
+        logger.warning(f"Firebase fetch skipped: {e}")
         mode = LearningMode.STANDARD
 
     if mode == LearningMode.REMEDIAL:
