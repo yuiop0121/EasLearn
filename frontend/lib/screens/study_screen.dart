@@ -114,8 +114,8 @@ class _StudyScreenState extends State<StudyScreen> {
           SnackBar(
               content: Text(
                   newMode == "Remedial" 
-                  ? "Don't worry, switching to Santai Mode! (Abang Persona Activated)" 
-                  : "Great progress! Switching back to Cikgu Mode."
+                  ? "Don't worry, switching to Santai Mode! (Study Buddy Activated)" 
+                  : "Great progress! Switching back to EasLearn Mode."
               ),
               backgroundColor: newMode == "Remedial" ? Colors.orange : Colors.blue,
               duration: const Duration(seconds: 4),
@@ -152,7 +152,7 @@ class _StudyScreenState extends State<StudyScreen> {
                         Icon(isRemedial ? Icons.coffee : Icons.school, size: 18, color: isRemedial ? Colors.orange[800] : Colors.blue[800]),
                         const SizedBox(width: 8),
                         Text(
-                            isRemedial ? "Santai Mode" : "Cikgu Mode",
+                            isRemedial ? "Santai Mode" : "EasLearn Mode",
                             style: TextStyle(
                                 color: isRemedial ? Colors.orange[900] : Colors.blue[900],
                                 fontWeight: FontWeight.bold
@@ -212,7 +212,7 @@ class _StudyScreenState extends State<StudyScreen> {
                               children: [
                                   if (!isUser) 
                                     Text(
-                                        isRemedial ? "Abang Cikgu" : "CikguAI",
+                                        isRemedial ? "Study Buddy" : "EasLearn",
                                         style: TextStyle(
                                             fontSize: 10, 
                                             fontWeight: FontWeight.bold,

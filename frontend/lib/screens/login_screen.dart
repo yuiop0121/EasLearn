@@ -87,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const Icon(Icons.school, size: 64, color: Colors.blueAccent),
               const SizedBox(height: 24),
               const Text(
-                "Welcome to CikguAI",
+                "Welcome to EasLearn",
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),

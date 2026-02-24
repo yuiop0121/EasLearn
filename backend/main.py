@@ -236,7 +236,7 @@ def get_system_prompt(uid: str) -> str:
         )
     else:
         return (
-            "You are CikguAI. Explain concepts formally and strictly based on the syllabus. "
+            "You are EasLearn. Explain concepts formally and strictly based on the syllabus. "
             "Be encouraging but academic. "
             "DEFAULT LANGUAGE: ENGLISH. Only use Malay if the user asks in Malay."
         )
@@ -327,7 +327,7 @@ def bucket_page(page, start):
 @app.get("/")
 def home():
     return {
-        "status": "CikguAI Backend Running", 
+        "status": "EasLearn Backend Running", 
         "pdf_status": PDF_LOADING_STATUS,
         "total_pages": len(TEXTBOOK_CONTENT),
         "chapters_detected": list(CHAPTER_MAP.keys())

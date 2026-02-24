@@ -36,18 +36,18 @@ void main() async {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
-      child: const CikguAIApp(),
+      child: const EasLearnApp(),
     ),
   );
 }
 
-class CikguAIApp extends StatelessWidget {
-  const CikguAIApp({super.key});
+class EasLearnApp extends StatelessWidget {
+  const EasLearnApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CikguAI',
+      title: 'EasLearn',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

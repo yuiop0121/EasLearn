@@ -72,7 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("CikguAI Dashboard"),
+        title: const Text("EasLearn Dashboard"),
         actions: [
             Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),

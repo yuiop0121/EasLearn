@@ -150,7 +150,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                         child: TextField(
                           controller: _controller,
                           decoration: const InputDecoration(
-                            hintText: "Ask CikguAI...",
+                            hintText: "Ask EasLearn...",
                             border: OutlineInputBorder(),
                           ),
                           onSubmitted: (val) async {
