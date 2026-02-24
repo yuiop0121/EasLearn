@@ -92,7 +92,14 @@ class _StudyScreenState extends State<StudyScreen> {
           _messages.add({"role": "assistant", "content": aiMsg});
         });
       } else {
-        setState(() => _messages.add({"role": "system", "content": "Error: ${response.statusCode}"}));
+        String errorDetail = "Status ${response.statusCode}";
+        try {
+          final data = jsonDecode(response.body);
+          if (data is Map && data.containsKey('detail')) {
+            errorDetail = data['detail'];
+          }
+        } catch (_) {}
+        setState(() => _messages.add({"role": "system", "content": "Error: $errorDetail"}));
       }
     } catch (e) {
       setState(() => _messages.add({"role": "system", "content": "Connection Failed: $e"}));

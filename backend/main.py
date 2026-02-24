@@ -353,10 +353,6 @@ def get_relevant_context(query: str, textbook_id: str, chapter_name: Optional[st
                 hits.append((1, p, content_dict[p]))
 
     top_hits = hits[:3]
-    return "\n---\n".join([f"Page {h[1]}: {h[2]}" for h in top_hits])
-
-    # Take top 3 pages
-    top_hits = hits[:3]
     logger.info(f"RAG Found {len(hits)} hits. Top pages: {[h[1] for h in top_hits]}")
     return "\n---\n".join([f"Page {h[1]}: {h[2]}" for h in top_hits])
 
@@ -373,14 +369,15 @@ def home():
     }
 
 @app.get("/debug/rag")
-def debug_rag(query: str, chapter: Optional[str] = None):
-    context = get_relevant_context(query, chapter)
+def debug_rag(query: str, textbook_id: str, chapter: Optional[str] = None):
+    context = get_relevant_context(query, textbook_id, chapter)
     return {
         "query": query,
+        "textbook_id": textbook_id,
         "chapter": chapter,
         "context_preview": context[:1000] + "..." if context else "EMPTY",
         "extracted_keywords": [k.lower() for k in query.split() if len(k) > 3 or any(char.isdigit() for char in k)],
-        "target_page": CHAPTER_MAP.get(chapter, "Not Found") if chapter else "N/A"
+        "target_page": CHAPTER_MAPS.get(textbook_id, {}).get(chapter, "Not Found") if chapter else "N/A"
     }
 
 @app.post("/auth/login")
@@ -498,21 +495,29 @@ def chat(request: ChatRequest):
     
     try:
         response = model.generate_content(full_prompt)
+        # Safe text extraction
+        try:
+             ai_text = response.text
+        except:
+             ai_text = "I apologize, but I could not generate a response for this query. It might be due to safety filters or a temporary glitch."
+             
         mode = "Remedial" if "Abang" in system_prompt or "Buddy" in system_prompt else "Standard"
-        return {"response": response.text, "mode_used": mode}
+        return {"response": ai_text, "mode_used": mode}
     except Exception as e:
         logger.error(f"Chat Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return a more descriptive error for debugging
+        raise HTTPException(status_code=500, detail=f"AI Engine Error: {str(e)}")
 
 @app.post("/quiz/generate")
 def quiz_generate(request: QuizGenerationRequest):
     if not model:
         raise HTTPException(status_code=503, detail="AI Model unavailable")
 
-    # Fetch context for chapter - Simplified: Search strictly for "Chapter X" or keywords in chapter name
-    # In a real app, rely on the Chapter Page Mapping to get exact text range.
-    # For now, searching keywords from chapter name.
-    context_text = get_relevant_context(request.chapter_name)
+    # Fetch context for chapter - Fix: pass common textbook ID if unknown
+    # In quiz generation, we usually know the textbook. Let's assume a generic search across loaded ones if not specified.
+    # For now, let's just pass any textbook_id that is loaded or a dummy one.
+    textbook_id = list(TEXTBOOKS.keys())[0] if TEXTBOOKS else "sejarah_f4"
+    context_text = get_relevant_context(request.chapter_name, textbook_id)
     
     prompt = f"""
     SUBJECT: Sejarah Tingkatan 4 (KSSM)
