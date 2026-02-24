@@ -245,25 +245,19 @@ def get_system_prompt(uid: str) -> str:
     """
     Fetches user's learning mode and returns appropriate system prompt.
     """
-    # If we are in demo mode or firebase is acting up, return standard immediately
-    if uid == "demo_user":
-        return LearningMode.STANDARD
-
-    try:
-        if db:
-            # Add a timeout to the firestore call to avoid hanging
+    mode = LearningMode.STANDARD
+    
+    # If we are in demo mode or firebase is acting up, bypass completely
+    if uid != "demo_user" and db:
+        try:
+            # Note: Removal of timeout=5 as it may not be supported in all SDK versions
             user_ref = db.collection("users").document(uid)
-            doc = user_ref.get(timeout=5) 
+            doc = user_ref.get() 
             if doc.exists:
                 mode = doc.to_dict().get("learning_mode", LearningMode.STANDARD)
-            else:
-                mode = LearningMode.STANDARD
-        else:
-            mode = LearningMode.STANDARD
-    except Exception as e:
-        logger.warning(f"Firebase fetch skipped: {e}")
-        mode = LearningMode.STANDARD
-
+        except Exception as e:
+            logger.warning(f"Firebase fetch failed (quota?): {e}")
+    
     if mode == LearningMode.REMEDIAL:
         return (
             "You are a friendly senior student ('Abang'). The user is confused. "
@@ -375,24 +369,31 @@ def debug_rag(query: str, chapter: Optional[str] = None):
 
 @app.post("/auth/login")
 def auth_login(request: LoginRequest):
+    if request.uid == "demo_user":
+        return {"status": "success", "message": "Demo mode active"}
+
     if not db:
         raise HTTPException(status_code=503, detail="Database unavailable")
     
-    user_ref = db.collection("users").document(request.uid)
-    doc = user_ref.get()
-    
-    if not doc.exists:
-        data = {
-            "uid": request.uid,
-            "email": request.email,
-            "name": request.name,
-            "learning_mode": LearningMode.STANDARD,
-            "quiz_history": []
-        }
-        user_ref.set(data)
-        return {"status": "success", "message": "User created"}
-    else:
-        return {"status": "success", "message": "User exists"}
+    try:
+        user_ref = db.collection("users").document(request.uid)
+        doc = user_ref.get()
+        
+        if not doc.exists:
+            data = {
+                "uid": request.uid,
+                "email": request.email,
+                "name": request.name,
+                "learning_mode": LearningMode.STANDARD,
+                "quiz_history": []
+            }
+            user_ref.set(data)
+            return {"status": "success", "message": "User created"}
+        else:
+            return {"status": "success", "message": "User exists"}
+    except Exception as e:
+        logger.error(f"Login failed (quota?): {e}")
+        return {"status": "success", "message": "Proceeding offline (DB restricted)"}
 
 # ... (rest of endpoints)
 
@@ -524,36 +525,42 @@ def quiz_generate(request: QuizGenerationRequest):
 
 @app.post("/quiz/submit")
 def quiz_submit(request: QuizSubmissionRequest):
+    if request.uid == "demo_user":
+        return {"new_mode": LearningMode.STANDARD}
+
     if not db:
         raise HTTPException(status_code=503, detail="Database unavailable")
     
-    user_ref = db.collection("users").document(request.uid)
-    
-    # 1. Update History
-    new_record = {
-        "score": request.score_percent,
-        "timestamp": firestore.SERVER_TIMESTAMP
-    }
-    # Using array_union or standard update
-    user_ref.update({
-        "quiz_history": firestore.ArrayUnion([new_record])
-    })
-    
-    # 2. Adaptation Rule
-    new_mode = None
-    if request.score_percent < 50:
-        new_mode = LearningMode.REMEDIAL
-    elif request.score_percent >= 80:
-        new_mode = LearningMode.STANDARD
-    
-    if new_mode:
-        user_ref.update({"learning_mode": new_mode})
-        return {"new_mode": new_mode}
-    
-    # No change
-    doc = user_ref.get()
-    current_mode = doc.to_dict().get("learning_mode", "Standard")
-    return {"new_mode": current_mode}
+    try:
+        user_ref = db.collection("users").document(request.uid)
+        
+        # 1. Update History
+        new_record = {
+            "score": request.score_percent,
+            "timestamp": firestore.SERVER_TIMESTAMP
+        }
+        user_ref.update({
+            "quiz_history": firestore.ArrayUnion([new_record])
+        })
+        
+        # 2. Adaptation Rule
+        new_mode = None
+        if request.score_percent < 50:
+            new_mode = LearningMode.REMEDIAL
+        elif request.score_percent >= 80:
+            new_mode = LearningMode.STANDARD
+        
+        if new_mode:
+            user_ref.update({"learning_mode": new_mode})
+            return {"new_mode": new_mode}
+        
+        # No change
+        doc = user_ref.get()
+        current_mode = doc.to_dict().get("learning_mode", LearningMode.STANDARD)
+        return {"new_mode": current_mode}
+    except Exception as e:
+        logger.warning(f"Quiz submit failed (quota?): {e}")
+        return {"new_mode": LearningMode.STANDARD}
 
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
