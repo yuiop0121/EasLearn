@@ -53,8 +53,10 @@ GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 LOCAL_PDF_PATH = os.path.join(STATIC_DIR, "server_textbook.pdf")
 TEXTBOOK_CONTENT = {} # Cache for RAG: {page_num: text} 
+CHAPTER_MAP = {} # Dynamic map: {"Bab 1": 1, ...}
 db = None
 model = None 
+
 # ...
 
 from fastapi.staticfiles import StaticFiles
@@ -71,7 +73,7 @@ PDF_LOADING_STATUS = "pending"
 import gc
 
 async def load_pdf_background():
-    global TEXTBOOK_CONTENT, PDF_LOADING_STATUS
+    global TEXTBOOK_CONTENT, PDF_LOADING_STATUS, CHAPTER_MAP
     PDF_LOADING_STATUS = "loading"
     try:
         # Re-verify DB connection inside task if needed, or rely on global 'db'
@@ -83,7 +85,7 @@ async def load_pdf_background():
         doc_ref = db.collection("content").document("textbook_v1")
         doc = doc_ref.get()
         if doc.exists:
-            data = doc.to_dict()
+            data = doc_ref.get().to_dict()
             pdf_url = data.get("pdf_drive_link")
             
             if not os.path.exists(LOCAL_PDF_PATH) and pdf_url:
@@ -103,30 +105,35 @@ async def load_pdf_background():
             if os.path.exists(LOCAL_PDF_PATH):
                 logger.info("Extracting text from PDF...")
                 def extract_text():
-                    # Optimized extraction: 
-                    # 1. Open file and keep handle open only during extraction
-                    # 2. Process page by page
                     content = {}
+                    ch_map = {}
                     try:
                         reader = PdfReader(LOCAL_PDF_PATH)
-                        # Process 300 pages max to be safe? No, we need all.
-                        # But we can periodically GC if it's huge.
                         for i, page in enumerate(reader.pages):
                             text = page.extract_text()
                             if text:
-                                content[i + 1] = text
+                                pg_num = i + 1
+                                content[pg_num] = text
+                                
+                                # Detect Chapter starts: "Bab 3" or "BAB 3" or "Bab 3:"
+                                ch_match = re.search(r'(?i)Bab\s+(\d+)', text[:500])
+                                if ch_match:
+                                    ch_name = f"Bab {ch_match.group(1)}"
+                                    if ch_name not in ch_map:
+                                        ch_map[ch_name] = pg_num
+                                        logger.info(f"Detected {ch_name} at Page {pg_num}")
                                 
                             # Periodic GC every 50 pages
                             if i % 50 == 0:
                                 gc.collect()
                     except Exception as extraction_err:
                         logger.error(f"Extraction Error: {extraction_err}")
-                        return {}
+                        return {}, {}
                     
-                    return content
+                    return content, ch_map
 
-                TEXTBOOK_CONTENT = await asyncio.to_thread(extract_text)
-                logger.info(f"Extracted {len(TEXTBOOK_CONTENT)} pages.")
+                TEXTBOOK_CONTENT, CHAPTER_MAP = await asyncio.to_thread(extract_text)
+                logger.info(f"Extracted {len(TEXTBOOK_CONTENT)} pages and {len(CHAPTER_MAP)} chapters.")
                 gc.collect() # Final cleanup
                 PDF_LOADING_STATUS = "completed"
         else:
@@ -209,14 +216,9 @@ def get_system_prompt(uid: str) -> str:
 
 def get_relevant_context(query: str, chapter_name: Optional[str] = None) -> str:
     """
-    Simple RAG: Find pages containing keywords from query.
-    If chapter_name provided, could filter by chapter range (requires mapping).
-    For now, full text search.
+    Enhanced RAG with Dynamic Chapter Map and Fallback.
     """
     relevant_text = []
-    # Split query into keywords
-    # Allow short keywords if they are numbers or subtopics (e.g. "2.1")
-    # Also handle cases where user types "2.1Maksud" (no space)
     raw_keywords = query.split()
     keywords = []
     for k in raw_keywords:
@@ -224,30 +226,24 @@ def get_relevant_context(query: str, chapter_name: Optional[str] = None) -> str:
         if len(k) > 3 or any(char.isdigit() for char in k):
             keywords.append(k)
         
-        # Extra splitting for "2.1Maksud" -> "2.1", "maksud"
         subparts = re.split(r'(\d+\.\d+)', k)
         for part in subparts:
             if part and part != k:
                  if len(part) > 3 or any(char.isdigit() for char in part):
                       keywords.append(part)
     
-    # ... (collect keywords)
     logger.info(f"RAG Keywords: {keywords} | Chapter Filter: {chapter_name}")
     
     hits = []
     
-    # 1. Expand default chapters
-    default_chapters = {
-         "Bab 1": 1, "Bab 2": 22, "Bab 3": 44, "Bab 4": 66, "Bab 5": 88, 
-         "Bab 6": 110, "Bab 7": 132, "Bab 8": 154, "Bab 9": 176, "Bab 10": 198
-    }
-    
+    # Use Dynamic CHAPTER_MAP
     target_page = 0
     if chapter_name:
-        for title, start_page in default_chapters.items():
-            if title.lower() in chapter_name.lower():
-                target_page = start_page
-                break
+        # Normalize chapter name, e.g. "Bab 3: ..." -> "Bab 3"
+        short_name_match = re.search(r'(?i)Bab\s+(\d+)', chapter_name)
+        if short_name_match:
+            short_name = f"Bab {short_name_match.group(1)}"
+            target_page = CHAPTER_MAP.get(short_name, 0)
     
     logger.info(f"RAG Target Page for {chapter_name}: {target_page}")
     
@@ -255,14 +251,12 @@ def get_relevant_context(query: str, chapter_name: Optional[str] = None) -> str:
         score = 0
         text_lower = text.lower()
         for k in keywords:
-            # Exact word match boost
             if k in text_lower:
                 score += 5
-                # Exact subtopic match boost (e.g. "10.1")
                 if re.search(rf'\b{re.escape(k)}\b', text_lower):
                     score += 10
         
-        # Boost if page is within likely chapter range
+        # Boost if page is within likely chapter range (30 pages)
         if target_page > 0 and target_page <= page_num < target_page + 30:
              score += 5
              
@@ -271,12 +265,18 @@ def get_relevant_context(query: str, chapter_name: Optional[str] = None) -> str:
              score += 15
              
         if score > 0:
-            hits.append((score, page_num, text[:500])) # Only need first 500 for ranking? No, take full text for context.
-            hits[-1] = (score, page_num, text) # Restore full text
+            hits.append((score, page_num, text))
     
     # Sort by score desc
     hits.sort(key=lambda x: x[0], reverse=True)
     
+    # Fallback: If no hits but we have a chapter, return first 3 pages of chapter
+    if not hits and target_page > 0:
+        logger.info(f"No keyword hits. Falling back to start of {chapter_name}")
+        for p in range(target_page, target_page + 3):
+            if p in TEXTBOOK_CONTENT:
+                hits.append((1, p, TEXTBOOK_CONTENT[p]))
+
     # Take top 3 pages
     top_hits = hits[:3]
     logger.info(f"RAG Found {len(hits)} hits. Top pages: {[h[1] for h in top_hits]}")
@@ -288,7 +288,12 @@ def bucket_page(page, start):
 
 @app.get("/")
 def home():
-    return {"status": "CikguAI Backend Running", "pdf_status": PDF_LOADING_STATUS}
+    return {
+        "status": "CikguAI Backend Running", 
+        "pdf_status": PDF_LOADING_STATUS,
+        "total_pages": len(TEXTBOOK_CONTENT),
+        "chapters_detected": list(CHAPTER_MAP.keys())
+    }
 
 @app.get("/debug/rag")
 def debug_rag(query: str, chapter: Optional[str] = None):
@@ -296,8 +301,9 @@ def debug_rag(query: str, chapter: Optional[str] = None):
     return {
         "query": query,
         "chapter": chapter,
-        "context_preview": context[:500] + "..." if context else "EMPTY",
-        "extracted_keywords": [k.lower() for k in query.split() if len(k) > 3 or any(char.isdigit() for char in k)]
+        "context_preview": context[:1000] + "..." if context else "EMPTY",
+        "extracted_keywords": [k.lower() for k in query.split() if len(k) > 3 or any(char.isdigit() for char in k)],
+        "target_page": CHAPTER_MAP.get(chapter, "Not Found") if chapter else "N/A"
     }
 
 @app.post("/auth/login")

@@ -5,6 +5,9 @@ import 'dart:convert';
 import 'dart:html' as html; // For IFrame
 import 'dart:ui' as ui; // For platform view registry
 import '../constants.dart';
+import '../providers/chat_provider.dart';
+import '../providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class StudyRoomScreen extends StatefulWidget {
   final String chapterTitle;
@@ -25,9 +28,6 @@ class StudyRoomScreen extends StatefulWidget {
 class _StudyRoomScreenState extends State<StudyRoomScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<Map<String, String>> _messages = [];
-  bool _isTyping = false;
-  String _currentMode = "Standard"; // Default
 
   @override
   void initState() {
@@ -48,77 +48,40 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
     );
   }
 
-  Future<void> _sendMessage() async {
-    if (_controller.text.trim().isEmpty) return;
-
-    final userMsg = _controller.text;
-    setState(() {
-      _messages.add({"role": "user", "content": userMsg});
-      _isTyping = true;
-      _controller.clear();
-    });
-    
-    // Scroll to bottom
+  void _scrollToBottom() {
     Future.delayed(Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: Duration(milliseconds: 300), 
-            curve: Curves.easeOut);
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
       }
     });
-
-    try {
-      // Call Backend
-      final response = await http.post(
-        Uri.parse('$kBackendUrl/chat'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "uid": "test_user_uid", // Replace with actual Auth logic
-          "message": userMsg,
-          "current_chapter_name": widget.chapterTitle,
-          "context": "Page ${widget.pageNumber} content...", // Add mechanism to fetch page text if possible
-          "history": _messages.map((m) => {
-            "role": m['role'] == 'user' ? 'user' : 'model',
-            "content": m['content']
-          }).toList() 
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final aiMsg = data['response'];
-        final mode = data['mode_used'];
-
-        setState(() {
-          _messages.add({"role": "assistant", "content": aiMsg});
-          _currentMode = mode;
-        });
-      } else {
-        setState(() {
-          _messages.add({"role": "system", "content": "Error: ${response.statusCode}"});
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _messages.add({"role": "system", "content": "Connection Failed: $e"});
-      });
-    } finally {
-      setState(() => _isTyping = false);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final chatProvider = Provider.of<ChatProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
+    final uid = userProvider.uid ?? "test_user_uid";
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.chapterTitle),
         actions: [
-            Chip(
-                label: Text("Mode: $_currentMode"),
-                backgroundColor: _currentMode == "Standard" ? Colors.blue[100] : Colors.green[100],
-            ),
-            const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => chatProvider.clearHistory(),
+            tooltip: "Clear Chat",
+          ),
+          Chip(
+            label: Text("Mode: ${chatProvider.currentMode}"),
+            backgroundColor: chatProvider.currentMode == "Standard"
+                ? Colors.blue[100]
+                : Colors.green[100],
+          ),
+          const SizedBox(width: 16),
         ],
       ),
       body: Row(
@@ -146,10 +109,10 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                   child: ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
+                    itemCount: chatProvider.messages.length,
                     itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      final isUser = msg['role'] == 'user';
+                      final msg = chatProvider.messages[index];
+                      final isUser = msg.role == 'user';
                       return Align(
                         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
@@ -160,19 +123,29 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                             color: isUser ? Colors.blueAccent : Colors.grey[200],
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: isUser 
-                            ? Text(msg['content']!, style: const TextStyle(color: Colors.white))
-                            : MarkdownBody(data: msg['content']!),
+                          child: isUser
+                              ? Text(msg.content, style: const TextStyle(color: Colors.white))
+                              : MarkdownBody(data: msg.content),
                         ),
                       );
                     },
                   ),
                 ),
-                if (_isTyping) const LinearProgressIndicator(),
+                if (chatProvider.isTyping) const LinearProgressIndicator(),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
+                      IconButton(
+                        icon: const Icon(Icons.refresh),
+                        onPressed: (chatProvider.isTyping || chatProvider.messages.isEmpty)
+                            ? null
+                            : () async {
+                                await chatProvider.regenerateResponse(uid, widget.chapterTitle);
+                                _scrollToBottom();
+                              },
+                        tooltip: "Regenerate last response",
+                      ),
                       Expanded(
                         child: TextField(
                           controller: _controller,
@@ -180,13 +153,22 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                             hintText: "Ask CikguAI...",
                             border: OutlineInputBorder(),
                           ),
-                          onSubmitted: (_) => _sendMessage(),
+                          onSubmitted: (val) async {
+                            await chatProvider.sendMessage(val, uid, widget.chapterTitle);
+                            _controller.clear();
+                            _scrollToBottom();
+                          },
                         ),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.send),
-                        onPressed: _sendMessage,
+                        onPressed: () async {
+                          final text = _controller.text;
+                          await chatProvider.sendMessage(text, uid, widget.chapterTitle);
+                          _controller.clear();
+                          _scrollToBottom();
+                        },
                       ),
                     ],
                   ),
