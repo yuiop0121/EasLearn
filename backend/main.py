@@ -100,6 +100,21 @@ async def load_pdf_background():
             
             TEXTBOOK_CONTENT = content
             CHAPTER_MAP = ch_map
+            
+            # 1b. ENSURE LOCAL PDF EXISTS (for the static viewer)
+            if not os.path.exists(LOCAL_PDF_PATH):
+                doc_data = main_doc.to_dict()
+                pdf_url = doc_data.get("pdf_drive_link")
+                if pdf_url:
+                    logger.info("Local PDF missing despite cache. Restoring file for static viewer...")
+                    download_url = convert_gdrive_url(pdf_url)
+                    with requests.get(download_url, stream=True) as r:
+                         r.raise_for_status()
+                         with open(LOCAL_PDF_PATH, "wb") as f:
+                             for chunk in r.iter_content(chunk_size=8192):
+                                 f.write(chunk)
+                    logger.info("Static PDF file restored from remote.")
+
             PDF_LOADING_STATUS = "completed_from_cache"
             logger.info("Textbook loaded from persistent cache.")
             return
