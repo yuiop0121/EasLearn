@@ -231,52 +231,97 @@ def get_relevant_context(query: str, chapter_name: Optional[str] = None) -> str:
                  if len(part) > 3 or any(char.isdigit() for char in part):
                       keywords.append(part)
     
+    # ... (collect keywords)
+    logger.info(f"RAG Keywords: {keywords} | Chapter Filter: {chapter_name}")
+    
     hits = []
     
-    # Simple Chapter Mapping (In real app, fetch from DB)
-    chapter_starts = {}
-    # Scan content for chapter titles to build dynamic map if not available
-    # Or just use the default fallback if DB invalid
+    # 1. Expand default chapters
     default_chapters = {
-         "Bab 1: Warisan Negara Bangsa": 1,
-         "Bab 2: Kebangkitan Nasionalisme": 22,
-         "Bab 3: Konflik Dunia": 50 # Approximate
+         "Bab 1": 1, "Bab 2": 22, "Bab 3": 44, "Bab 4": 66, "Bab 5": 88, 
+         "Bab 6": 110, "Bab 7": 132, "Bab 8": 154, "Bab 9": 176, "Bab 10": 198
     }
     
     target_page = 0
     if chapter_name:
-        # Try to find start page from default map or DB
         for title, start_page in default_chapters.items():
-            if title in chapter_name or chapter_name in title:
+            if title.lower() in chapter_name.lower():
                 target_page = start_page
                 break
     
+    logger.info(f"RAG Target Page for {chapter_name}: {target_page}")
+    
     for page_num, text in TEXTBOOK_CONTENT.items():
-        score = sum(text.lower().count(k) for k in keywords)
+        score = 0
+        text_lower = text.lower()
+        for k in keywords:
+            # Exact word match boost
+            if k in text_lower:
+                score += 5
+                # Exact subtopic match boost (e.g. "10.1")
+                if re.search(rf'\b{re.escape(k)}\b', text_lower):
+                    score += 10
         
         # Boost if page is within likely chapter range
-        if target_page > 0 and bucket_page(page_num, target_page):
-             score += 5 # Boost chapter pages
+        if target_page > 0 and target_page <= page_num < target_page + 30:
+             score += 5
              
         # Boost if page contains chapter title explicitly
-        if chapter_name and chapter_name.lower() in text.lower():
-             score += 10
+        if chapter_name and chapter_name.lower() in text_lower:
+             score += 15
              
         if score > 0:
-            hits.append((score, page_num, text))
+            hits.append((score, page_num, text[:500])) # Only need first 500 for ranking? No, take full text for context.
+            hits[-1] = (score, page_num, text) # Restore full text
     
     # Sort by score desc
     hits.sort(key=lambda x: x[0], reverse=True)
     
     # Take top 3 pages
     top_hits = hits[:3]
+    logger.info(f"RAG Found {len(hits)} hits. Top pages: {[h[1] for h in top_hits]}")
     return "\n---\n".join([f"Page {h[1]}: {h[2]}" for h in top_hits])
 
 def bucket_page(page, start):
     # Assume chapter length ~20 pages
     return start <= page < start + 20
 
-# ... (skip to get_chapters)
+@app.get("/")
+def home():
+    return {"status": "CikguAI Backend Running", "pdf_status": PDF_LOADING_STATUS}
+
+@app.get("/debug/rag")
+def debug_rag(query: str, chapter: Optional[str] = None):
+    context = get_relevant_context(query, chapter)
+    return {
+        "query": query,
+        "chapter": chapter,
+        "context_preview": context[:500] + "..." if context else "EMPTY",
+        "extracted_keywords": [k.lower() for k in query.split() if len(k) > 3 or any(char.isdigit() for char in k)]
+    }
+
+@app.post("/auth/login")
+def auth_login(request: LoginRequest):
+    if not db:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    
+    user_ref = db.collection("users").document(request.uid)
+    doc = user_ref.get()
+    
+    if not doc.exists:
+        data = {
+            "uid": request.uid,
+            "email": request.email,
+            "name": request.name,
+            "learning_mode": LearningMode.STANDARD,
+            "quiz_history": []
+        }
+        user_ref.set(data)
+        return {"status": "success", "message": "User created"}
+    else:
+        return {"status": "success", "message": "User exists"}
+
+# ... (rest of endpoints)
 
 @app.get("/chapters")
 def get_chapters(request: Request):
