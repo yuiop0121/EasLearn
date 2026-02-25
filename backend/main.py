@@ -49,8 +49,6 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 os.makedirs(STATIC_DIR, exist_ok=True)
 
 SERVICE_ACCOUNT_KEY = os.path.join(BASE_DIR, "serviceAccountKey.json")
-GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY") 
-
 # Multi-Textbook Configuration
 TEXTBOOKS = {} # {textbook_id: {page_num: text}}
 CHAPTER_MAPS = {} # {textbook_id: {"Bab 1": 1, ...}}
@@ -61,17 +59,20 @@ TEXTBOOK_METADATA = {
         "title": "Sejarah Tingkatan 4",
         "level": "Form 4",
         "subject": "Sejarah",
-        "pdf_url": "https://drive.google.com/file/d/1X5Xzq..." 
+        "pdf_url": "https://drive.google.com/file/d/1X5XzqS_Lz79G4hL0pSg2Yl6VfR6X9j9K/view" 
     },
     "physics_f5": {
         "title": "Physics Form 5",
         "level": "Form 5",
         "subject": "Physics",
-        "pdf_url": "https://drive.google.com/file/d/1IPqXd..."
+        "pdf_url": "https://drive.google.com/file/d/1IPqXd1p3RxzGkSVVLfKKaYZKHxQkqzK/view"
     }
 }
 db = None
 model = None 
+
+# Track if database is actually usable
+DB_AVAILABLE = False
 
 # ...
 
@@ -90,12 +91,12 @@ import gc
 
 async def load_pdf_background():
     global TEXTBOOKS, PDF_LOADING_STATUS, CHAPTER_MAPS, TEXTBOOK_METADATA
+    if not DB_AVAILABLE:
+        logger.info("Skipping background sync: Database currently restricted/quota exceeded.")
+        PDF_LOADING_STATUS = "quota_restricted"
+        return
+
     PDF_LOADING_STATUS = "loading"
-    try:
-        if not db:
-             logger.error("DB not initialized in background task")
-             PDF_LOADING_STATUS = "failed_no_db"
-             return
 
         # Load all textbooks from "textbooks" collection
         logger.info("Syncing all textbooks from Firestore...")
@@ -218,7 +219,7 @@ async def load_pdf_background():
 
 @app.on_event("startup")
 async def startup_event():
-    global db, model, TEXTBOOK_CONTENT
+    global db, model, TEXTBOOK_CONTENT, DB_AVAILABLE
     
     # Init Firebase
     try:
@@ -237,9 +238,19 @@ async def startup_event():
                 logger.warning("serviceAccountKey.json not found and FIREBASE_CREDENTIALS not set. Using default creds (Application Default Credentials).")
                 firebase_admin.initialize_app()
         db = firestore.client()
-        logger.info("Firebase Initialized")
+        
+        # Fast check if DB is quota-blocked
+        try:
+            db.collection("health").document("check").get(timeout=2)
+            DB_AVAILABLE = True
+            logger.info("Firebase Initialized and Reachable")
+        except Exception as qe:
+            logger.warning(f"Firebase quota reached or unreachable: {qe}")
+            DB_AVAILABLE = False
+            
     except Exception as e:
         logger.error(f"Firebase Init Failed: {e}")
+        DB_AVAILABLE = False
 
     # Init Gemini
     logger.info(f"Initializing Gemini with Key: {GEMINI_API_KEY[:5]}... if present")
@@ -253,8 +264,9 @@ async def startup_event():
     else:
         logger.warning("GOOGLE_API_KEY not set.")
 
-    # Start PDF loading in background
-    asyncio.create_task(load_pdf_background())
+    # Start PDF loading in background - Run in a separate thread to avoid blocking the main loop
+    import threading
+    threading.Thread(target=lambda: asyncio.run(load_pdf_background()), daemon=True).start()
 
 # B. Adaptive Logic
 def get_system_prompt(uid: str) -> str:
@@ -449,10 +461,12 @@ def get_chapters(textbook_id: str, request: Request):
 
 @app.post("/chat")
 def chat(request: ChatRequest):
+    logger.info(f"Chat request received for {request.textbook_id} from {request.uid}")
     if not model:
         raise HTTPException(status_code=503, detail="AI Model unavailable")
     
     system_prompt = get_system_prompt(request.uid)
+    logger.info("System prompt generated")
     
     # RAG with specific textbook
     try:
@@ -461,6 +475,7 @@ def chat(request: ChatRequest):
         logger.warning(f"RAG Context fetch failed: {e}")
         context_text = "[SYSTEM: DATABASE CURRENTLY UNAVAILABLE (Quota Exceeded). Responding with General Knowledge.]"
     
+    logger.info("Context retrieved")
     if PDF_LOADING_STATUS == "loading" and not context_text:
         context_text = "[SYSTEM: SYNC IN PROGRESS. Please wait a minute.]"
     elif not context_text:
