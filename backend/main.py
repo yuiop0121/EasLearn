@@ -257,9 +257,9 @@ async def startup_event():
     if GEMINI_API_KEY:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            # Switch to 1.5-flash which is more robust and has better free-tier limits
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            logger.info("Gemini Initialized Successfully (1.5-Flash Model)")
+            # Upgrade to 2.5-flash for massive 1000 RPM capacity
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            logger.info("Gemini Initialized Successfully (2.5-Flash Model)")
         except Exception as e:
              logger.error(f"Gemini Init Failed: {e}")
     else:
