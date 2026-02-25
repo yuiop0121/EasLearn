@@ -257,8 +257,9 @@ async def startup_event():
     if GEMINI_API_KEY:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel('gemini-2.0-flash-lite')
-            logger.info("Gemini Initialized Successfully (Lite Model)")
+            # Switch to 1.5-flash which is more robust and has better free-tier limits
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            logger.info("Gemini Initialized Successfully (1.5-Flash Model)")
         except Exception as e:
              logger.error(f"Gemini Init Failed: {e}")
     else:
@@ -507,21 +508,31 @@ def chat(request: ChatRequest):
     
     USER QUESTION: {request.message}
     """
-    
-    try:
-        response = model.generate_content(full_prompt)
-        # Safe text extraction
+    import time
+    for attempt in range(3):
         try:
-             ai_text = response.text
-        except:
-             ai_text = "I apologize, but I could not generate a response for this query. It might be due to safety filters or a temporary glitch."
-             
-        mode = "Remedial" if "Abang" in system_prompt or "Buddy" in system_prompt else "Standard"
-        return {"response": ai_text, "mode_used": mode}
-    except Exception as e:
-        logger.error(f"Chat Error: {e}")
-        # Return a more descriptive error for debugging
-        raise HTTPException(status_code=500, detail=f"AI Engine Error: {str(e)}")
+            logger.info(f"Generating AI content (Attempt {attempt+1})...")
+            response = model.generate_content(full_prompt)
+            
+            # Safe text extraction
+            try:
+                 ai_text = response.text
+            except:
+                 ai_text = "I apologize, but I could not generate a response for this query. It might be due to safety filters or a temporary glitch."
+                 
+            mode = "Remedial" if "Abang" in system_prompt or "Buddy" in system_prompt else "Standard"
+            return {"response": ai_text, "mode_used": mode}
+            
+        except Exception as e:
+            err_msg = str(e)
+            if "429" in err_msg and attempt < 2:
+                logger.warning(f"Gemini 429 Quota reached. Retrying in 2s... (Attempt {attempt+1})")
+                time.sleep(2)
+                continue
+            
+            logger.error(f"Chat Error on attempt {attempt+1}: {e}")
+            if attempt == 2:
+                raise HTTPException(status_code=500, detail=f"AI Engine Error (Final Attempt): {err_msg}")
 
 @app.post("/quiz/generate")
 def quiz_generate(request: QuizGenerationRequest):
