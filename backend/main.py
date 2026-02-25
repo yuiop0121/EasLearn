@@ -257,9 +257,9 @@ async def startup_event():
     if GEMINI_API_KEY:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            # Upgrade to 2.5-flash for massive 1000 RPM capacity
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            logger.info("Gemini Initialized Successfully (2.5-Flash Model)")
+            # Switch to 2.0-flash-lite which has the highest RPM (4,000) on your dashboard
+            model = genai.GenerativeModel('gemini-2.0-flash-lite')
+            logger.info("Gemini Initialized Successfully (Gemini 2.0 Flash Lite)")
         except Exception as e:
              logger.error(f"Gemini Init Failed: {e}")
     else:
@@ -461,25 +461,23 @@ def get_chapters(textbook_id: str, request: Request):
     }
 
 @app.post("/chat")
-def chat(request: ChatRequest):
+async def chat(request: ChatRequest):
     logger.info(f"Chat request received for {request.textbook_id} from {request.uid}")
     if not model:
         raise HTTPException(status_code=503, detail="AI Model unavailable")
     
+    # Run sync prompt generation in thread if necessary, but here we can just call it
     system_prompt = get_system_prompt(request.uid)
-    logger.info("System prompt generated")
     
     # RAG with specific textbook
     try:
+        # get_relevant_context is sync, but small enough to run here
         context_text = get_relevant_context(request.message, request.textbook_id, request.current_chapter_name)
     except Exception as e:
         logger.warning(f"RAG Context fetch failed: {e}")
         context_text = "[SYSTEM: DATABASE CURRENTLY UNAVAILABLE (Quota Exceeded). Responding with General Knowledge.]"
     
-    logger.info("Context retrieved")
-    if PDF_LOADING_STATUS == "loading" and not context_text:
-        context_text = "[SYSTEM: SYNC IN PROGRESS. Please wait a minute.]"
-    elif not context_text:
+    if not context_text:
         context_text = "[SYSTEM: NO CONTEXT FOUND relevant to your question in this textbook.]"
 
     history_text = ""
@@ -508,11 +506,14 @@ def chat(request: ChatRequest):
     
     USER QUESTION: {request.message}
     """
-    import time
+    
+    import random
     for attempt in range(3):
         try:
             logger.info(f"Generating AI content (Attempt {attempt+1})...")
-            response = model.generate_content(full_prompt)
+            # genai call is blocking, but we run in async so we must use a threadpool for it or the async version
+            # For now, let's keep it simple but add async sleep
+            response = await asyncio.to_thread(model.generate_content, full_prompt)
             
             # Safe text extraction
             try:
@@ -526,8 +527,9 @@ def chat(request: ChatRequest):
         except Exception as e:
             err_msg = str(e)
             if "429" in err_msg and attempt < 2:
-                logger.warning(f"Gemini 429 Quota reached. Retrying in 2s... (Attempt {attempt+1})")
-                time.sleep(2)
+                jitter = random.uniform(2.0, 4.0)
+                logger.warning(f"Gemini 429 Quota reached. Retrying in {jitter:.1f}s... (Attempt {attempt+1})")
+                await asyncio.sleep(jitter)
                 continue
             
             logger.error(f"Chat Error on attempt {attempt+1}: {e}")
