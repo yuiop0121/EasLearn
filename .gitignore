@@ -1,3 +1,41 @@
+<<<<<<< HEAD
+=======
+# Environment Variables
+.env
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+backend/venv/
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+build/
+coverage/
+frontend/build/
+frontend/.dart_tool/
+frontend/.pub/
+frontend/android/
+frontend/ios/
+frontend/macos/
+frontend/linux/
+frontend/windows/
+frontend/web/
+
+# IDEs
+.idea/
+.vscode/
+
+# Firebase
+backend/serviceAccountKey.json
+firebase-debug.log
+
+>>>>>>> 7d3f5f9635ca788317e2397b0f2e55de5e5812aa
 .env
 .env.local
 .env.development.local
@@ -80,3 +118,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+<<<<<<< HEAD
+=======
+
+
+# Local Assets & Scripts
+backend/static/
+backend/add_textbook.py
+>>>>>>> 7d3f5f9635ca788317e2397b0f2e55de5e5812aa
