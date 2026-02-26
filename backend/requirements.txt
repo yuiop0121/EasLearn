@@ -1,0 +1,4 @@
+firebase-admin
+google-generativeai
+pypdf2
+pdfplumber

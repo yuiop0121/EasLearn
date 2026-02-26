@@ -1,0 +1,9 @@
+@echo off
+echo Cleaning...
+call flutter clean
+echo Building...
+call flutter build web --release --no-tree-shake-icons
+echo Deploying...
+call firebase deploy
+echo Finished! Refresh your dashboard now.
+pause
