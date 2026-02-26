@@ -33,6 +33,90 @@ frontend/web/
 backend/serviceAccountKey.json
 firebase-debug.log
 
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.secret
+api_keys.json
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Android signing secrets
+android/key.properties
+android/app/*.keystore
+android/app/*.jks
+android/local.properties
+
+# Python virtual environments
+venv/
+.venv/
+env/
+ENV/
+bin/
+lib/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+data/
+datasets/
+*.csv
+*.json
+!manifest.json  # Exception if you need a specific config file
+
+*.h5
+*.pt
+*.onnx
+*.weights
+*.bin
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+
 # Local Assets & Scripts
 backend/static/
 backend/add_textbook.py
