@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:edupulse_ai/core/theme/app_theme.dart';
-import 'package:edupulse_ai/services/chat_service.dart';
+import 'package:edupulse_ai/services/rag_service.dart';
 
+/// The main chat interface for the General Syllabus Assistant.
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -13,65 +14,74 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  // Initialize the generalized RagService
+  final RagService _ragService = RagService();
+
+  bool _isLoading = false;
+
+  // Initial greeting message acting as a general tutor
   final List<Map<String, dynamic>> _messages = [
     {
       "isUser": false,
       "message":
-          "Hello! I am EasLearn AI. I've indexed your textbooks and mistake logs. How can I help you today?",
+          "Hello! I am EasAI. I have indexed your syllabus textbooks and mistake logs. What subject or topic would you like to ask about today?",
       "timestamp": "Now",
     },
   ];
 
-  final ChatService _chatService = ChatService();
-  bool _isLoading = false;
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
+  /// Handles sending the user's message and retrieving the AI's response
   void _sendMessage() async {
-    if (_controller.text.trim().isEmpty) return;
-
     final userText = _controller.text.trim();
-    final userMsg = {
-      "isUser": true,
-      "message": userText,
-      "timestamp": _formatTime(DateTime.now()),
-    };
+    if (userText.isEmpty) return;
 
-    setState(() {
-      _messages.add(userMsg);
-      _isLoading = true;
-    });
+    // Display user's message in the UI immediately
+    _addMessage(userText, true);
 
+    setState(() => _isLoading = true);
     _controller.clear();
     _scrollToBottom();
 
     try {
-      // ChatService handles the system instruction and history roles correctly now
-      final response = await _chatService.sendMessage(userText);
-
-      if (mounted) {
-        setState(() {
-          _messages.add({
-            "isUser": false,
-            "message": response,
-            "timestamp": _formatTime(DateTime.now()),
-          });
-          _isLoading = false;
-        });
-        _scrollToBottom();
-      }
+      // Fetch response using the general syllabus database
+      final response = await _ragService.askGeneralQuestion(userText);
+      if (mounted) _addMessage(response, false);
     } catch (e) {
+      if (mounted) _addMessage("I encountered an error: $e", false);
+    } finally {
       if (mounted) {
-        setState(() {
-          _messages.add({
-            "isUser": false,
-            "message": "Error: $e",
-            "timestamp": _formatTime(DateTime.now()),
-          });
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
+        _scrollToBottom();
       }
     }
   }
 
+  /// Helper to append a new message to the chat list
+  void _addMessage(String text, bool isUser) {
+    setState(() {
+      _messages.add({
+        "isUser": isUser,
+        "message": text,
+        "timestamp": _formatTime(DateTime.now()),
+      });
+    });
+  }
+
+  /// Formats the DateTime object into a readable time string (e.g., 4:30 PM)
+  String _formatTime(DateTime time) {
+    final hour =
+        time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+    final amPm = time.hour >= 12 ? 'PM' : 'AM';
+    return "$hour:${time.minute.toString().padLeft(2, '0')} $amPm";
+  }
+
+  /// Smoothly scrolls the list view to the newest message
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -84,21 +94,11 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  String _formatTime(DateTime time) {
-    return "${time.hour > 12 ? time.hour - 12 : time.hour}:${time.minute.toString().padLeft(2, '0')} ${time.hour >= 12 ? 'PM' : 'AM'}";
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _buildAppBar(context),
+      backgroundColor: AppColors.backgroundDark,
+      appBar: _buildAppBar(),
       body: Column(
         children: [
           Expanded(
@@ -108,22 +108,8 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: _messages.length + (_isLoading ? 1 : 0),
               separatorBuilder: (context, index) => const SizedBox(height: 20),
               itemBuilder: (context, index) {
-                if (index == _messages.length) {
-                  return const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: EdgeInsets.only(left: 16, bottom: 8),
-                      child: Text(
-                        "EasLearn AI is thinking...",
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  );
-                }
+                // Display loading indicator if waiting for AI response
+                if (index == _messages.length) return _buildLoadingIndicator();
                 final msg = _messages[index];
                 return ChatBubble(
                   isUser: msg['isUser'],
@@ -133,39 +119,37 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          _buildInputArea(context),
+          _buildInputArea(),
         ],
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  /// Builds the top app bar with generalized database terminology
+  PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: AppColors.backgroundDark,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-        onPressed: () {},
+        icon:
+            const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
       ),
-      title: Row(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: AppColors.primaryBlue,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
           Text(
-            'EASLEARN AI ASSISTANT',
+            'EASAI ASSISTANT',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: AppColors.primaryBlue,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
                 ),
+          ),
+          const Text(
+            'KPM SYLLABUS DATABASE', // Generalized subtitle
+            style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -177,7 +161,7 @@ class _ChatScreenState extends State<ChatScreen> {
               const Icon(Icons.bolt, color: Colors.amber, size: 16),
               const SizedBox(width: 4),
               Text(
-                'GPT-4 Omni Active',
+                'Gemini 2.0 Active',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondary,
                       fontSize: 10,
@@ -190,124 +174,85 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildInputArea(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundNavy,
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.backgroundDark,
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.mic_none,
-                      color: AppColors.textSecondary),
-                  onPressed: () {},
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: AppColors.backgroundDark,
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  // Removed alignment: Alignment.centerLeft to let TextField fill
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
-                            hintText: "Ask EasLearn anything...",
-                            hintStyle:
-                                TextStyle(color: AppColors.textSecondary),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                            isDense: true,
-                          ),
-                          onSubmitted: (_) => _sendMessage(),
-                        ),
-                      ),
-                      Icon(Icons.attach_file,
-                          color: AppColors.textSecondary.withOpacity(0.5)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.accentPurple, Color(0xFFD946EF)],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: _sendMessage,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildActionChip(context, "Summarize Page"),
-                _buildActionChip(context, "Define Symbols"),
-                _buildActionChip(context, "Practice Quiz"),
-              ],
-            ),
-          )
-        ],
+  /// Builds the loading text shown when the AI is fetching data
+  Widget _buildLoadingIndicator() {
+    return const Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: EdgeInsets.only(left: 16, bottom: 8),
+        child: Text(
+          "EasAI is searching your syllabus database...", // Generalized loading text
+          style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontStyle: FontStyle.italic),
+        ),
       ),
     );
   }
 
-  Widget _buildActionChip(BuildContext context, String label) {
+  /// Builds the text input area at the bottom of the screen
+  Widget _buildInputArea() {
     return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: ActionChip(
-        label: Text(label),
-        backgroundColor: AppColors.backgroundDark,
-        labelStyle: const TextStyle(color: Colors.white, fontSize: 12),
-        side: BorderSide(color: Colors.white.withOpacity(0.1)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        onPressed: () {
-          _controller.text = label;
-          _sendMessage();
-        },
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundNavy,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 50,
+              decoration: BoxDecoration(
+                color: AppColors.backgroundDark,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                controller: _controller,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText:
+                      "Ask anything about your syllabus...", // Generalized hint
+                  hintStyle:
+                      TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                  border: InputBorder.none,
+                ),
+                onSubmitted: (_) => _sendMessage(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                  colors: [AppColors.accentPurple, Color(0xFFD946EF)]),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.send, color: Colors.white),
+              onPressed: _sendMessage,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
+/// A reusable widget for displaying individual chat messages
 class ChatBubble extends StatelessWidget {
   final bool isUser;
   final String message;
   final String timestamp;
 
-  const ChatBubble({
-    super.key,
-    required this.isUser,
-    required this.message,
-    required this.timestamp,
-  });
+  const ChatBubble(
+      {super.key,
+      required this.isUser,
+      required this.message,
+      required this.timestamp});
 
   @override
   Widget build(BuildContext context) {
@@ -320,67 +265,48 @@ class ChatBubble extends StatelessWidget {
               isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!isUser) ...[
-              const CircleAvatar(
-                radius: 16,
-                backgroundColor: Color(0xFF334155),
-                child: Icon(Icons.smart_toy,
-                    size: 18, color: AppColors.accentPurple),
-              ),
-              const SizedBox(width: 8),
-            ],
+            if (!isUser) _buildAvatar(Icons.smart_toy, AppColors.accentPurple),
             Flexible(
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isUser
-                      ? AppColors.primaryBlue
-                      : const Color(0xFF1E293B), // Navy
+                  color:
+                      isUser ? AppColors.primaryBlue : const Color(0xFF1E293B),
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(20),
                     topRight: const Radius.circular(20),
                     bottomLeft: Radius.circular(isUser ? 20 : 4),
                     bottomRight: Radius.circular(isUser ? 4 : 20),
                   ),
-                  border: isUser
-                      ? null
-                      : Border.all(color: Colors.white.withOpacity(0.1)),
                 ),
-                child: Text(
-                  message,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    height: 1.4,
-                  ),
-                ),
+                child: Text(message,
+                    style: const TextStyle(color: Colors.white, height: 1.4)),
               ),
             ),
-            if (isUser) ...[
-              const SizedBox(width: 8),
-              const CircleAvatar(
-                radius: 16,
-                backgroundColor: Color(0xFF334155),
-                child:
-                    Icon(Icons.person, size: 18, color: AppColors.textPrimary),
-              ),
-            ],
+            if (isUser) _buildAvatar(Icons.person, AppColors.textPrimary),
           ],
         ),
         const SizedBox(height: 6),
         Padding(
-          padding: EdgeInsets.only(
-            left: isUser ? 0 : 48,
-            right: isUser ? 48 : 0,
-          ),
-          child: Text(
-            isUser ? "You • $timestamp" : "EasLearn AI • $timestamp",
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 10,
-            ),
-          ),
+          padding:
+              EdgeInsets.only(left: isUser ? 0 : 48, right: isUser ? 48 : 0),
+          child: Text("${isUser ? 'You' : 'EasAI'} • $timestamp",
+              style: const TextStyle(
+                  color: AppColors.textSecondary, fontSize: 10)),
         ),
       ],
+    );
+  }
+
+  /// Helper to build the circular avatars next to chat bubbles
+  Widget _buildAvatar(IconData icon, Color iconColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: CircleAvatar(
+        radius: 16,
+        backgroundColor: const Color(0xFF334155),
+        child: Icon(icon, size: 18, color: iconColor),
+      ),
     );
   }
 }

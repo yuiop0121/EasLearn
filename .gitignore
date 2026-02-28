@@ -1,128 +1,85 @@
-<<<<<<< HEAD
-=======
-# Environment Variables
+# ==========================================
+# EduPulse AI - Project Ignore Rules
+# ==========================================
+
+# --- Environment & Sensitive Variables ---
+# Do not upload API keys or environment secrets
 .env
-backend/.env
-
-# Python
-__pycache__/
-*.py[cod]
-venv/
-.venv/
-backend/venv/
-
-# Flutter / Dart
-.dart_tool/
-.packages
-.pub/
-build/
-coverage/
-frontend/build/
-frontend/.dart_tool/
-frontend/.pub/
-frontend/android/
-frontend/ios/
-frontend/macos/
-frontend/linux/
-frontend/windows/
-frontend/web/
-
-# IDEs
-.idea/
-.vscode/
-
-# Firebase
-backend/serviceAccountKey.json
-firebase-debug.log
-
->>>>>>> 7d3f5f9635ca788317e2397b0f2e55de5e5812aa
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env*
 *.pem
 *.key
 *.secret
 api_keys.json
+lib/core/constants.dart
 
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
+# --- Flutter / Dart Specifics ---
+# Build artifacts and dependency caches
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+.flutter-plugins-dependencies
+build/
+**/ios/Flutter/.last_build_id
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
+# --- Platform Specific Builds ---
+# Ignore desktop/web builds if only focusing on mobile
+/android/app/debug
+/android/app/profile
+/android/app/release
+frontend/build/
+frontend/web/
+frontend/macos/
+frontend/linux/
+frontend/windows/
 
-# Android signing secrets
-android/key.properties
-android/app/*.keystore
-android/app/*.jks
-android/local.properties
+# --- Firebase & Backend ---
+# Local Firebase CLI cache and service account keys
+.firebase/
+firebase-debug.log
+backend/serviceAccountKey.json
+backend/.env
+backend/static/
+backend/add_textbook.py
 
-# Python virtual environments
+# --- Python & Virtual Environments ---
+# Compiled python files and local virtual envs
+__pycache__/
+*.py[cod]
+*$py.class
 venv/
 .venv/
 env/
 ENV/
 bin/
-lib/
 
-# Python bytecode
-__pycache__/
-*.py[cod]
-*$py.class
+# --- Android Signing & Local Config ---
+# Security files for app signing and local SDK paths
+android/key.properties
+android/app/*.keystore
+android/app/*.jks
+android/local.properties
+local.properties
 
-
+# --- Data & Large Files ---
+# Prevent large datasets or model weights from being tracked
 data/
 datasets/
 *.csv
 *.json
-!manifest.json  # Exception if you need a specific config file
-
+!manifest.json
 *.h5
 *.pt
 *.onnx
 *.weights
 *.bin
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
-<<<<<<< HEAD
-=======
-
-
-# Local Assets & Scripts
-backend/static/
-backend/add_textbook.py
->>>>>>> 7d3f5f9635ca788317e2397b0f2e55de5e5812aa
+# --- IDEs & System Garbage ---
+# User-specific editor configurations and OS files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+*.log

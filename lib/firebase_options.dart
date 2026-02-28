@@ -41,48 +41,51 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCq3yR2POGK4kSoe_xKAHLEmfTM84HgGu4',
-    appId: '1:757004652724:web:17ca9f7925ebdb684b47e1',
-    messagingSenderId: '757004652724',
-    projectId: 'project-abcfc',
-    authDomain: 'project-abcfc.firebaseapp.com',
-    storageBucket: 'project-abcfc.firebasestorage.app',
-    measurementId: 'G-S4HH8KHPP0',
+    apiKey: 'AIzaSyAuRyMrpk9z2Jm7I239SbqxsqiHLCKEEew',
+    appId: '1:138853979633:web:1f3c40d2fc84d3254c6050',
+    messagingSenderId: '138853979633',
+    projectId: 'easlearn-51990',
+    authDomain: 'easlearn-51990.firebaseapp.com',
+    storageBucket: 'easlearn-51990.firebasestorage.app',
+    measurementId: 'G-0X9DYKJ1NV',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDLDGUn_059WKg_aNh8jG2QYu5UmSY48pg',
-    appId: '1:757004652724:android:b2c8b626fdeb3e7c4b47e1',
-    messagingSenderId: '757004652724',
-    projectId: 'project-abcfc',
-    storageBucket: 'project-abcfc.firebasestorage.app',
+    apiKey: 'AIzaSyCBWtaWhmBxfiKKLWUear6-srqyN2noCAc',
+    appId: '1:138853979633:android:527a7456f1032ebe4c6050',
+    messagingSenderId: '138853979633',
+    projectId: 'easlearn-51990',
+    storageBucket: 'easlearn-51990.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAQmMV9gkFYhFINHCR541m3-FOgkkR9Jds',
-    appId: '1:757004652724:ios:a1a9f4014364becd4b47e1',
-    messagingSenderId: '757004652724',
-    projectId: 'project-abcfc',
-    storageBucket: 'project-abcfc.firebasestorage.app',
+    apiKey: 'AIzaSyBP-lLx90F1XmlOjFjf-572hY36wLvs7cY',
+    appId: '1:138853979633:ios:86cf1c1ab5950c9b4c6050',
+    messagingSenderId: '138853979633',
+    projectId: 'easlearn-51990',
+    storageBucket: 'easlearn-51990.firebasestorage.app',
+    iosClientId: '138853979633-e61fivp4skq5mjus9h076gadcn4m5o1a.apps.googleusercontent.com',
     iosBundleId: 'com.edupulse.edupulseAi',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAQmMV9gkFYhFINHCR541m3-FOgkkR9Jds',
-    appId: '1:757004652724:ios:a1a9f4014364becd4b47e1',
-    messagingSenderId: '757004652724',
-    projectId: 'project-abcfc',
-    storageBucket: 'project-abcfc.firebasestorage.app',
+    apiKey: 'AIzaSyBP-lLx90F1XmlOjFjf-572hY36wLvs7cY',
+    appId: '1:138853979633:ios:86cf1c1ab5950c9b4c6050',
+    messagingSenderId: '138853979633',
+    projectId: 'easlearn-51990',
+    storageBucket: 'easlearn-51990.firebasestorage.app',
+    iosClientId: '138853979633-e61fivp4skq5mjus9h076gadcn4m5o1a.apps.googleusercontent.com',
     iosBundleId: 'com.edupulse.edupulseAi',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCq3yR2POGK4kSoe_xKAHLEmfTM84HgGu4',
-    appId: '1:757004652724:web:a01bc6a7d5ed31c34b47e1',
-    messagingSenderId: '757004652724',
-    projectId: 'project-abcfc',
-    authDomain: 'project-abcfc.firebaseapp.com',
-    storageBucket: 'project-abcfc.firebasestorage.app',
-    measurementId: 'G-JQ9R6KS6NR',
+    apiKey: 'AIzaSyAuRyMrpk9z2Jm7I239SbqxsqiHLCKEEew',
+    appId: '1:138853979633:web:b2fb5792f5ca987c4c6050',
+    messagingSenderId: '138853979633',
+    projectId: 'easlearn-51990',
+    authDomain: 'easlearn-51990.firebaseapp.com',
+    storageBucket: 'easlearn-51990.firebasestorage.app',
+    measurementId: 'G-J2B20BXHFE',
   );
+
 }
