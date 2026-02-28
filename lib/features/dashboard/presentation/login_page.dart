@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:firebase_auth/firebase_auth.dart'; // NEW: Added Firebase Auth import
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -47,37 +48,89 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  // NEW: Updated to handle real Firebase Email/Password Authentication
   void _handleSubmit() async {
     if (_formKey.currentState!.validate()) {
       setState(() => isLoading = true);
 
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+      try {
+        if (isSignIn) {
+          // Log in existing user
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
+        } else {
+          // Create new account
+          UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
+          // Save the user's name to their Firebase profile
+          await userCredential.user?.updateDisplayName(_nameController.text.trim());
+        }
 
-      setState(() => isLoading = false);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isSignIn ? '✓ Login Successful!' : '✓ Account Created!',
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isSignIn ? '✓ Login Successful!' : '✓ Account Created!',
+              ),
+              backgroundColor: Colors.cyan.shade700,
+              behavior: SnackBarBehavior.floating,
             ),
-            backgroundColor: Colors.cyan.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          );
+          // Go back to the Dashboard after successful login
+          Navigator.pop(context); 
+        }
+      } on FirebaseAuthException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.message ?? 'Authentication failed'),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => isLoading = false);
+        }
       }
     }
   }
 
-  void _handleSocialLogin(String provider) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Signing in with $provider...'),
-        backgroundColor: Colors.cyan.shade700,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  // NEW: Updated to handle Google Login via Firebase Web
+  void _handleSocialLogin(String provider) async {
+    if (provider == 'Google') {
+      try {
+        GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        await FirebaseAuth.instance.signInWithPopup(googleProvider);
+        if (mounted) {
+          Navigator.pop(context); // Go back to dashboard on success
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Google Sign-In failed: $e'),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } else {
+      // Fallback for other buttons (Facebook, GitHub, Twitter)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$provider sign in coming soon!'),
+          backgroundColor: Colors.cyan.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
