@@ -1,230 +1,195 @@
 import 'package:flutter/material.dart';
-import 'package:edupulse_ai/core/theme/app_theme.dart';
+
+// --- Global State Manager ---
+// This acts as a single source of truth for the quiz results across the entire app.
+// By using ValueNotifier, the UI will automatically rebuild when these values change.
+class QuizData {
+  static final ValueNotifier<int> scoreNotifier = ValueNotifier<int>(0);
+  static final ValueNotifier<int> totalNotifier = ValueNotifier<int>(15);
+  static final ValueNotifier<bool> hasRecordNotifier =
+      ValueNotifier<bool>(false);
+
+  // Call this method to update the global record after a quiz finishes
+  static void updateRecord(int newScore, int newTotal) {
+    scoreNotifier.value = newScore;
+    totalNotifier.value = newTotal;
+    hasRecordNotifier.value = true;
+  }
+}
 
 class GradingScreen extends StatelessWidget {
-  const GradingScreen({super.key});
+  // Optional parameters to prevent GoRouter instantiation errors
+  final int? score;
+  final int? total;
+
+  const GradingScreen({super.key, this.score, this.total});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: Container(
-          margin: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-          ),
-          child: const Icon(Icons.arrow_back_ios_new,
-              size: 18, color: Colors.white),
-        ),
-        centerTitle: true,
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-          ),
-          child: const Text(
-            'AI GRADING RESULT',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.5,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.share_outlined,
-                  size: 20, color: Colors.white),
-              onPressed: () {},
-            ),
-          ),
-        ],
-      ),
-      extendBodyBehindAppBar: true,
-      body: Stack(
-        children: [
-          // Ambient backround
-          Positioned(
-            top: 100,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.primaryBlue.withOpacity(0.15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryBlue.withOpacity(0.2),
-                      blurRadius: 100,
-                      spreadRadius: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+    // If the screen is pushed directly from the QuizResultPage,
+    // update the global state immediately after the current frame builds.
+    if (score != null && total != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        QuizData.updateRecord(score!, total!);
+      });
+    }
 
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
-                  _buildScoreCard(),
-                  const SizedBox(height: 32),
-                  const Text(
-                    'KEY INSIGHTS',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildInsightsGrid(),
-                  const SizedBox(height: 32),
-                  _buildFeedbackCard(),
-                  const SizedBox(height: 80), // Padding for bottom FABs
-                ],
-              ),
-            ),
-          ),
+    // ValueListenableBuilder listens to the global notifiers.
+    // Whenever QuizData.updateRecord is called, this entire widget tree rebuilds automatically.
+    return ValueListenableBuilder<bool>(
+      valueListenable: QuizData.hasRecordNotifier,
+      builder: (context, hasRecord, _) {
+        return ValueListenableBuilder<int>(
+          valueListenable: QuizData.scoreNotifier,
+          builder: (context, savedScore, _) {
+            return ValueListenableBuilder<int>(
+              valueListenable: QuizData.totalNotifier,
+              builder: (context, savedTotal, _) {
+                // Prioritize incoming data, fallback to saved global data
+                int displayScore = score ?? savedScore;
+                int displayTotal = total ?? savedTotal;
+                bool isRecordAvailable = (score != null) || hasRecord;
 
-          // Bottom Actions
-          Positioned(
-            bottom: 32,
-            left: 24,
-            right: 24,
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text("Regrade Page"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                // Calculate accuracy safely
+                double accuracy = isRecordAvailable && displayTotal > 0
+                    ? (displayScore / displayTotal) * 100
+                    : 0;
+
+                return Scaffold(
+                  backgroundColor: const Color(0xFF0F1522),
+                  appBar: AppBar(
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    // The back button is handled automatically if pushed via Navigator
+                    leading: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                          color: Colors.white, size: 18),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    centerTitle: true,
+                    title: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      elevation: 8,
-                      shadowColor: AppColors.primaryBlue.withOpacity(0.4),
+                      child: const Text('AI GRADING RESULT',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 1.5)),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                _buildCircleAction(Icons.download),
-                const SizedBox(width: 12),
-                _buildCircleAction(Icons.more_vert),
-              ],
-            ),
-          )
-        ],
-      ),
+                  body: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 16),
+                        // Main Score Display Card
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B).withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(32),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.05)),
+                          ),
+                          child: Column(
+                            children: [
+                              const Text('GRADE ANALYSIS',
+                                  style: TextStyle(
+                                      color: Color(0xFF4A8CFF),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12)),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${accuracy.toStringAsFixed(0)}%',
+                                style: const TextStyle(
+                                    fontSize: 80,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    height: 1.0),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text('Overall Accuracy Score',
+                                  style: TextStyle(
+                                      color: Colors.white54, fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Insight Chips Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildInsightChip(
+                                isRecordAvailable
+                                    ? 'Correct: $displayScore/$displayTotal'
+                                    : 'No record yet',
+                                Icons.analytics,
+                                const Color(0xFF4A8CFF)),
+                            const SizedBox(width: 12),
+                            _buildInsightChip(
+                                'Physics', Icons.science, Colors.blueAccent),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Dynamic AI Feedback Box
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B).withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.05)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.info, color: Color(0xFF4A8CFF)),
+                                  SizedBox(width: 12),
+                                  Text('AI Feedback',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16)),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                isRecordAvailable
+                                    ? (accuracy >= 80
+                                        ? "Excellent work! Your record shows strong mastery of the concepts."
+                                        : "You're getting there! Focus on reviewing missed topics to improve.")
+                                    : "Start a quiz in the Question Bank to see your AI-graded record here.",
+                                style: const TextStyle(
+                                    color: Colors.white70,
+                                    height: 1.6,
+                                    fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
-  Widget _buildCircleAction(IconData icon) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: Colors.white),
-        onPressed: () {},
-        padding: const EdgeInsets.all(16),
-      ),
-    );
-  }
-
-  Widget _buildScoreCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: const Column(
-        children: [
-          Text(
-            'GRADE ANALYSIS',
-            style: TextStyle(
-              color: AppColors.primaryBlue,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              letterSpacing: 1.2,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            '0%',
-            style: TextStyle(
-                fontSize: 80,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                height: 1.0,
-                shadows: [
-                  BoxShadow(
-                    color: Colors.white24,
-                    blurRadius: 20,
-                    spreadRadius: 20,
-                  )
-                ]),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Overall Accuracy Score',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInsightsGrid() {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _buildInsightChip(
-            'Grammar: Strong', Icons.check_circle, AppColors.primaryBlue),
-        _buildInsightChip(
-            'Logic Issues', Icons.warning_amber, Colors.redAccent),
-        _buildInsightChip('Great Hook', Icons.star, Colors.blueAccent),
-        _buildInsightChip('MLA Format Error', Icons.description, Colors.amber),
-        _buildInsightChip('Deep Analysis', Icons.psychology, Colors.lightBlue),
-      ],
-    );
-  }
-
+  // Helper method for generating insight pills
   Widget _buildInsightChip(String label, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -238,54 +203,11 @@ class GradingScreen extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: color),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeedbackCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.5),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.info, color: AppColors.primaryBlue),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'AI Feedback',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            "The thesis statement is compelling but lacks supporting evidence in the third paragraph. Pay attention to the transitions between your main arguments for a smoother logical flow.",
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              height: 1.6,
-              fontSize: 14,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12)),
         ],
       ),
     );
