@@ -1,6 +1,5 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:edupulse_ai/core/constants.dart';
-import 'package:flutter/foundation.dart';
 
 class GeminiService {
   late final GenerativeModel _model;
