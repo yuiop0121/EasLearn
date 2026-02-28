@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart'; // NEW: Firebase Auth
 import 'physics.dart';
+import 'login_page.dart'; // NEW: Import Login Page
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -75,20 +77,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Positioned.fill(
               child: Container(color: Colors.black.withOpacity(0.5))),
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTopNavBar(context),
-                  const SizedBox(height: 50),
-                  _buildCenteredGreetingPanel(context),
-                  const SizedBox(height: 50),
-                  _buildSubjectsHeader(context),
-                  const SizedBox(height: 16),
-                  _buildSubjectsGrid(context),
-                ],
-              ),
+            // NEW: Listen to Firebase Auth state to update UI dynamically
+            child: StreamBuilder<User?>(
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: (context, snapshot) {
+                final user = snapshot.data; // Get current user
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTopNavBar(context, user),
+                      const SizedBox(height: 50),
+                      _buildCenteredGreetingPanel(context, user),
+                      const SizedBox(height: 50),
+                      _buildSubjectsHeader(context),
+                      const SizedBox(height: 16),
+                      _buildSubjectsGrid(context),
+                      
+                      // NEW: Bottom Sign Out Button (Only visible if signed in)
+                      if (user != null) ...[
+                        const SizedBox(height: 48),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () async {
+                              await FirebaseAuth.instance.signOut();
+                            },
+                            icon: const Icon(Icons.logout, color: Colors.white54),
+                            label: const Text(
+                              'Sign Out of EasLearn',
+                              style: TextStyle(color: Colors.white54),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                );
+              }
             ),
           ),
         ],
@@ -96,7 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildTopNavBar(BuildContext context) {
+  Widget _buildTopNavBar(BuildContext context, User? user) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -121,14 +149,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             _buildIconButton(Icons.notifications_outlined),
             const SizedBox(width: 12),
-            _buildProfileAvatar(),
+            _buildProfileAvatar(context, user), // Pass context and user here
           ],
         ),
       ],
     );
   }
 
-  Widget _buildCenteredGreetingPanel(BuildContext context) {
+  Widget _buildCenteredGreetingPanel(BuildContext context, User? user) {
+    // NEW: Get the first name of the user or default to "Student"
+    final displayName = user?.displayName?.split(' ').first ?? 'Student';
+
     return Center(
       child: Container(
         width: double.infinity,
@@ -151,9 +182,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Hello, Michelle,',
-              style: TextStyle(
+            Text(
+              'Hello, $displayName,', // NEW: Dynamic Name
+              style: const TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -237,14 +268,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           childAspectRatio: 0.85),
       itemBuilder: (context, index) {
         final subject = displayedItems[index];
-        // FIXED: Passing context to the card builder
         return _buildSubjectCard(context, subject['title'], subject['subtitle'],
             subject['icon'], subject['color'], subject['image']);
       },
     );
   }
 
-  // FIXED: Added BuildContext and GestureDetector for navigation
   Widget _buildSubjectCard(BuildContext context, String title, String subtitle,
       String icon, Color color, String? imagePath) {
     return GestureDetector(
@@ -256,7 +285,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 builder: (context) => const PhysicsChaptersScreen()),
           );
         } else {
-          // Feedback for subjects not yet implemented
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('$title is coming soon!'),
@@ -331,14 +359,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onPressed: () {}, icon: Icon(icon, color: Colors.white, size: 20)));
   }
 
-  Widget _buildProfileAvatar() {
-    return Container(
+  // NEW: Dynamic Profile Avatar handling Sign In / Sign Out states
+  Widget _buildProfileAvatar(BuildContext context, User? user) {
+    if (user == null) {
+      // Not signed in: Show clickable avatar that goes to login page
+      return GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(2),
+          decoration: const BoxDecoration(
+              color: Colors.cyanAccent, shape: BoxShape.circle),
+          child: const CircleAvatar(
+            radius: 18,
+            backgroundColor: Color(0xFF1E293B),
+            child: Icon(Icons.person, color: Colors.white, size: 20),
+          ),
+        ),
+      );
+    }
+
+    // Signed in: Show PopupMenu with user info and Logout option
+    return PopupMenuButton<String>(
+      offset: const Offset(0, 50),
+      color: const Color(0xFF1E293B), // Match your dark theme
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      icon: Container(
         padding: const EdgeInsets.all(2),
         decoration: const BoxDecoration(
             color: Colors.cyanAccent, shape: BoxShape.circle),
-        child: const CircleAvatar(
-            radius: 18,
-            backgroundColor: Color(0xFF1E293B),
-            child: Icon(Icons.person, color: Colors.white, size: 20)));
+        child: CircleAvatar(
+          radius: 18,
+          backgroundColor: const Color(0xFF1E293B),
+          backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
+          child: user.photoURL == null
+              ? const Icon(Icons.person, color: Colors.white, size: 20)
+              : null,
+        ),
+      ),
+      onSelected: (value) async {
+        if (value == 'logout') {
+          await FirebaseAuth.instance.signOut();
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.displayName ?? 'Student',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              Text(
+                user.email ?? '',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const Divider(color: Colors.white24),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout, color: Colors.redAccent, size: 20),
+              SizedBox(width: 8),
+              Text('Sign Out', style: TextStyle(color: Colors.redAccent)),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
