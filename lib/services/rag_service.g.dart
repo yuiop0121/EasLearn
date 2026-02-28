@@ -6,7 +6,7 @@ part of 'rag_service.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$ragServiceHash() => r'ab896081d208932c97f458f48b006a3c9eb5379b';
+String _$ragServiceHash() => r'21604893b31c105ceee3f35988ab7cbcb5e73ff4';
 
 /// See also [ragService].
 @ProviderFor(ragService)

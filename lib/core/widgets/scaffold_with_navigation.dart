@@ -50,7 +50,7 @@ class ScaffoldWithNavigation extends StatelessWidget {
             NavigationDestination(
               icon: Icon(Icons.memory_outlined),
               selectedIcon: Icon(Icons.memory, color: AppColors.primaryBlue),
-              label: 'Memory',
+              label: 'Question Bank',
             ),
           ],
         ),

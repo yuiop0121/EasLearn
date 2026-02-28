@@ -1,8 +1,6 @@
-import 'package:edupulse_ai/features/dashboard/presentation/login_page.dart';
-import 'package:edupulse_ai/features/dashboard/presentation/physics.dart';
 import 'package:flutter/material.dart';
-import 'package:edupulse_ai/core/theme/app_theme.dart';
-import 'dart:math' as math;
+import 'dart:ui';
+import 'physics.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,81 +17,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'title': 'Mathematics',
       'subtitle': 'Algebra & Geometry',
       'icon': 'Σ',
-      'color': AppColors.primaryBlue,
-      'image': 'assets/mathematics.png',
+      'color': Colors.blue,
+      'image': 'assets/mathematics.png'
     },
     {
       'title': 'Add. Mathematics',
       'subtitle': 'Calculus & Vectors',
       'icon': '∫',
-      'color': AppColors.accentPurple,
-      'image': 'assets/addmaths.png',
+      'color': Colors.purple,
+      'image': 'assets/addmaths.png'
     },
     {
       'title': 'Physics',
       'subtitle': 'Forces & Motion',
       'icon': '⚡',
       'color': Colors.amber,
-      'image': 'assets/physics.png',
+      'image': 'assets/physics.png'
     },
     {
       'title': 'Chemistry',
       'subtitle': 'Organic Compounds',
       'icon': '⚗',
-      'color': AppColors.accentCyan,
-      'image': 'assets/chemistry.png',
+      'color': Colors.cyan,
+      'image': 'assets/chemistry.png'
     },
     {
       'title': 'Biology',
       'subtitle': 'Cell Structure',
       'icon': '🧬',
-      'color': Colors.greenAccent
+      'color': Colors.greenAccent,
+      'image': 'assets/biology.png'
     },
     {
       'title': 'Science',
       'subtitle': 'General Concepts',
       'icon': '🔬',
-      'color': Colors.deepOrangeAccent
+      'color': Colors.orange,
+      'image': 'assets/science.png'
     },
     {
       'title': 'Sejarah',
       'subtitle': 'Malaysian History',
       'icon': '📜',
-      'color': Colors.brown
+      'color': Colors.brown,
+      'image': 'assets/sejarah.png'
     },
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // We use a Stack to layer the background image behind the content
+      backgroundColor: const Color(0xFF020617),
       body: Stack(
         children: [
-          // 1. The Global Background Image
           Positioned.fill(
-            child: Image.asset(
-              'assets/main.png', // Replace with actual background file
-              fit: BoxFit.cover,
-            ),
-          ),
-
-          // 2. Optional: Dark overlay to keep your UI readable
+              child: Image.asset('assets/background.png', fit: BoxFit.cover)),
           Positioned.fill(
-            child: Container(
-              color: Colors.black.withOpacity(0.4),
-            ),
-          ),
-
+              child: Container(color: Colors.black.withOpacity(0.5))),
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(context),
-                  const SizedBox(height: 32),
-                  _buildDailyPulseCard(context),
-                  const SizedBox(height: 32),
+                  _buildTopNavBar(context),
+                  const SizedBox(height: 50),
+                  _buildCenteredGreetingPanel(context),
+                  const SizedBox(height: 50),
                   _buildSubjectsHeader(context),
                   const SizedBox(height: 16),
                   _buildSubjectsGrid(context),
@@ -106,172 +96,113 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildTopNavBar(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Powered By Firebase',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.primaryBlue,
+            Text('Powered By Firebase',
+                style: TextStyle(
+                    color: Colors.cyanAccent,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 2.0,
-                    fontSize: 10,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'EasLearn',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    letterSpacing: 1.5,
+                    fontSize: 10)),
+            SizedBox(height: 4),
+            Text('EasLearn',
+                style: TextStyle(
+                    color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 26,
-                  ),
-            ),
+                    fontSize: 26)),
           ],
         ),
         Row(
           children: [
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.notifications_outlined),
-              style: IconButton.styleFrom(
-                backgroundColor: AppColors.cardSurface.withOpacity(0.5),
-                foregroundColor: AppColors.textPrimary,
-                padding: const EdgeInsets.all(12),
-              ),
-            ),
+            _buildIconButton(Icons.notifications_outlined),
             const SizedBox(width: 12),
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LoginPage(),
-                    ));
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.primaryBlue, width: 2),
-                ),
-                child: const CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.cardSurface,
-                  child: Icon(Icons.person, color: AppColors.textPrimary),
-                ),
-              ),
-            ),
+            _buildProfileAvatar(),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildDailyPulseCard(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.5),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.backgroundNavy.withOpacity(0.8),
-            AppColors.backgroundDark.withOpacity(0.9),
+  Widget _buildCenteredGreetingPanel(BuildContext context) {
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 30),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(
+            color: Colors.cyanAccent.withOpacity(0.4),
+            width: 2.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.cyanAccent.withOpacity(0.15),
+              blurRadius: 30,
+              spreadRadius: 10,
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.08),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 200,
-            width: 200,
-            child: CustomPaint(
-              painter: _CircularProgressPainter(percentage: 0.001),
-              child: const Center(
-                child: Column(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Hello, Michelle,',
+              style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.5),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              "Welcome back. Let's start learning!",
+              style:
+                  TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 18),
+            ),
+            const SizedBox(height: 50),
+            GestureDetector(
+              onTap: () {},
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: Colors.cyanAccent.withOpacity(0.7), width: 1.5),
+                  color: Colors.cyanAccent.withOpacity(0.05),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.cyanAccent.withOpacity(0.15),
+                        blurRadius: 10,
+                        spreadRadius: 1),
+                  ],
+                ),
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '0%',
-                      style: TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: -1.0,
-                      ),
-                    ),
-                    Text(
-                      'COMPLETED',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
+                    Text('Start Learning',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0)),
+                    SizedBox(width: 8),
+                    Icon(Icons.lightbulb_outline,
+                        color: Colors.cyanAccent, size: 14),
+                    Icon(Icons.chevron_right,
+                        color: Colors.cyanAccent, size: 14),
                   ],
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Daily Pulse',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Start learning!",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 24),
-          // Progress Bars
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildSegment(true),
-              _buildSegment(true),
-              _buildSegment(true),
-              _buildSegment(false),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSegment(bool filled) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      height: 4,
-      width: 40,
-      decoration: BoxDecoration(
-        color: filled ? AppColors.primaryBlue : Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(2),
+          ],
+        ),
       ),
     );
   }
@@ -280,62 +211,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
-          'Current Subjects',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _showAll = !_showAll;
-            });
-          },
-          child: Text(
-            _showAll ? 'Show Less' : 'View All',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryBlue,
-            ),
-          ),
-        ),
+        const Text('Current Subjects',
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white)),
+        TextButton(
+            onPressed: () => setState(() => _showAll = !_showAll),
+            child: Text(_showAll ? 'Show Less' : 'View All',
+                style: const TextStyle(color: Colors.cyanAccent))),
       ],
     );
   }
 
   Widget _buildSubjectsGrid(BuildContext context) {
-    final displayedSubjects = _showAll ? _subjects : _subjects.take(4).toList();
-
-    return GridView.count(
+    final displayedItems = _showAll ? _subjects : _subjects.take(4).toList();
+    return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 0.85,
-      children: displayedSubjects.map((subject) {
-        return _buildSubjectCard(
-          subject['title'] as String,
-          subject['subtitle'] as String,
-          subject['icon'] as String,
-          subject['color'] as Color,
-          subject['image'] as String?,
-        );
-      }).toList(),
+      itemCount: displayedItems.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.85),
+      itemBuilder: (context, index) {
+        final subject = displayedItems[index];
+        // FIXED: Passing context to the card builder
+        return _buildSubjectCard(context, subject['title'], subject['subtitle'],
+            subject['icon'], subject['color'], subject['image']);
+      },
     );
   }
 
-  Widget _buildSubjectCard(
-    String title,
-    String subtitle,
-    String iconSymbol,
-    Color accentColor,
-    String? imagePath,
-  ) {
+  // FIXED: Added BuildContext and GestureDetector for navigation
+  Widget _buildSubjectCard(BuildContext context, String title, String subtitle,
+      String icon, Color color, String? imagePath) {
     return GestureDetector(
       onTap: () {
         if (title == 'Physics') {
@@ -345,9 +256,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 builder: (context) => const PhysicsChaptersScreen()),
           );
         } else {
-          // Handle other subjects or show a snackbar
+          // Feedback for subjects not yet implemented
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("$title content coming soon!")),
+            SnackBar(
+              content: Text('$title is coming soon!'),
+              duration: const Duration(seconds: 1),
+            ),
           );
         }
       },
@@ -356,147 +270,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B).withOpacity(0.4),
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.05),
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
           image: imagePath != null
               ? DecorationImage(
                   image: AssetImage(imagePath),
-                  fit: BoxFit.cover, // ensure that textbook fit the whole box
+                  fit: BoxFit.cover,
                   colorFilter: ColorFilter.mode(
-                    Colors.black.withOpacity(
-                        0.5), // add this mask, otherwise you can't read the text
-                    BlendMode.darken,
-                  ),
-                )
+                      Colors.black.withOpacity(0.5), BlendMode.darken))
               : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 48,
-              width: 48,
-              decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Center(
-                child: Text(
-                  iconSymbol,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: accentColor,
-                  ),
-                ),
-              ),
-            ),
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Center(
+                    child: Text(icon,
+                        style: TextStyle(
+                            fontSize: 22,
+                            color: color,
+                            fontWeight: FontWeight.bold)))),
             const Spacer(),
-            Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                height: 1.2,
-                shadows: [
-                  Shadow(blurRadius: 4, color: Colors.black)
-                ], // add shadow, make the text clearer
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8), // make it brighter
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 16),
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    shadows: [Shadow(blurRadius: 4, color: Colors.black)]),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(subtitle,
+                style: TextStyle(
+                    color: Colors.white.withOpacity(0.8), fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 12),
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: 0.6,
-                backgroundColor: Colors.white
-                    .withOpacity(0.2), // make the background bar darker
-                color: accentColor,
-                minHeight: 4,
-              ),
-            ),
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                    value: 0.6,
+                    backgroundColor: Colors.white10,
+                    color: color,
+                    minHeight: 4)),
           ],
         ),
       ),
     );
   }
-}
 
-class _CircularProgressPainter extends CustomPainter {
-  final double percentage;
-
-  _CircularProgressPainter({required this.percentage});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width / 2, size.height / 2);
-    final strokeWidth = 12.0;
-
-    // Background Circle
-    final bgPaint = Paint()
-      ..color = const Color(0xFF0F172A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(center, radius - strokeWidth / 2, bgPaint);
-
-    // Background Glow
-    final shadowPaint = Paint()
-      ..color = AppColors.primaryBlue.withOpacity(0.1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 10
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
-      -math.pi / 2,
-      2 * math.pi * percentage,
-      false,
-      shadowPaint,
-    );
-
-    // Foreground Gradient Arc
-    final gradient = LinearGradient(
-      colors: [
-        AppColors.primaryBlue,
-        AppColors.accentCyan,
-      ],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomRight,
-    );
-
-    final rect =
-        Rect.fromCircle(center: center, radius: radius - strokeWidth / 2);
-    final fgPaint = Paint()
-      ..shader = gradient.createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      rect,
-      -math.pi / 2, // Start at top
-      2 * math.pi * percentage,
-      false,
-      fgPaint,
-    );
+  Widget _buildIconButton(IconData icon) {
+    return Container(
+        decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+        child: IconButton(
+            onPressed: () {}, icon: Icon(icon, color: Colors.white, size: 20)));
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  Widget _buildProfileAvatar() {
+    return Container(
+        padding: const EdgeInsets.all(2),
+        decoration: const BoxDecoration(
+            color: Colors.cyanAccent, shape: BoxShape.circle),
+        child: const CircleAvatar(
+            radius: 18,
+            backgroundColor: Color(0xFF1E293B),
+            child: Icon(Icons.person, color: Colors.white, size: 20)));
+  }
 }

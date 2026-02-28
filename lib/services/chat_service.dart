@@ -55,7 +55,7 @@ CORE RULES:
 
     // Create a NEW model instance with system instructions to prevent role errors
     _model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       apiKey: AppConstants.geminiApiKey,
       systemInstruction: Content.system(systemInstruction),
     );

@@ -1,55 +1,108 @@
 import 'package:flutter/material.dart';
-import 'pdf_viewer_screen.dart'; // 👈 Imports your new native PDF screen!
+import 'pdf_viewer_screen.dart';
+import 'markdown_viewer_screen.dart';
 
 class PhysicsChaptersScreen extends StatelessWidget {
   const PhysicsChaptersScreen({super.key});
 
-  final List<Map<String, String>> chapters = const [
+  final List<Map<String, dynamic>> chapters = const [
     {
       'id': '1',
       'title': 'Force and Motion II',
-      'subtitle': 'Fundamentals & Scope',
-      // 👇 Pure Raw Link - No Google Docs hack needed anymore!
+      'subtitle': '1.1, 1.2, 1.3, 1.4',
       'pdfUrl':
-          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc1.pdf'
+          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc1.pdf',
+      'subTopics': [
+        {
+          'title': 'Chapter 1 Note',
+          'url':
+              'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/1_Force_and_Motion_II.md'
+        }
+      ],
     },
     {
       'id': '2',
       'title': 'Pressure',
-      'subtitle': 'Kinematics and Velocity',
+      'subtitle': '2.1, 2.2, 2.3, 2.4, 2.5',
       'pdfUrl':
-          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc2.pdf' // Add your raw link here later when you upload phyc2.pdf
+          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc2.pdf',
+      'subTopics': [
+        {
+          'title': 'Chapter 2 Note',
+          'url':
+              'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/2_Pressure.md'
+        }
+      ],
     },
     {
       'id': '3',
       'title': 'Electricity',
-      'subtitle': 'Newton\'s Laws of Motion',
+      'subtitle': '3.1, 3.2, 3.3, 3.4',
       'pdfUrl':
-          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc3.pdf'
+          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc3.pdf',
+      'subTopics': [
+        {
+          'title': 'Chapter 3 Note',
+          'url':
+              'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/3_Electricity.md'
+        }
+      ],
     },
     {
       'id': '4',
       'title': 'Electromagnetism',
-      'subtitle': 'Fluids and Atmospheric Pressure',
-      'pdfUrl': ''
+      'subtitle': '4.1, 4.2, 4.3',
+      'pdfUrl':
+          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc4.pdf',
+      'subTopics': [
+        {
+          'title': 'Chapter 4 Note',
+          'url':
+              'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/4_Electromagnetism.md'
+        }
+      ],
     },
     {
       'id': '5',
       'title': 'Electronics',
-      'subtitle': 'Thermal Properties of Matter',
-      'pdfUrl': ''
+      'subtitle': '5.1, 5.2, 5.3',
+      'pdfUrl':
+          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc5.pdf',
+      'subTopics': [
+        {
+          'title': 'Chapter 5 Note',
+          'url':
+              'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/5_Electronics.md'
+        }
+      ],
     },
     {
       'id': '6',
       'title': 'Nuclear Physics',
-      'subtitle': 'Sound and Light Waves',
-      'pdfUrl': ''
+      'subtitle': '6.1, 6.2',
+      'pdfUrl':
+          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc6.pdf',
+      'subTopics': [
+        {
+          'title': 'Chapter 6 Note',
+          'url':
+              'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/6_Nuclear_Physics.md'
+        }
+      ],
     },
     {
       'id': '7',
       'title': 'Quantum Physics',
-      'subtitle': 'Currents, Circuits and Fields',
-      'pdfUrl': ''
+      'subtitle': '7.1, 7.2, 7.3',
+      'pdfUrl':
+          'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/phyc7.pdf',
+      'subTopics': [
+        {
+          'title': 'Chapter 7 Note',
+          'url':
+              'https://cdn.jsdelivr.net/gh/Michelle-0107/EasLearnTextbook@main/7_Quantum_Physics.md'
+        }
+      ],
     },
   ];
 
@@ -64,20 +117,22 @@ class PhysicsChaptersScreen extends StatelessWidget {
         child: Container(
           constraints: BoxConstraints(maxWidth: isDesktop ? 1000 : 600),
           child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
             slivers: [
               _buildAppBar(context, isDesktop),
               SliverPadding(
                 padding: EdgeInsets.symmetric(
-                    horizontal: isDesktop ? 40 : 20, vertical: 30),
+                    horizontal: isDesktop ? 40 : 20, vertical: 20),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) =>
-                        _buildChapterTile(context, chapters[index], isDesktop),
+                    (context, index) => ChapterExpandableCard(
+                      chapter: chapters[index],
+                      isDesktop: isDesktop,
+                    ),
                     childCount: chapters.length,
                   ),
                 ),
               ),
-              _buildAIQuizCard(isDesktop),
             ],
           ),
         ),
@@ -87,191 +142,174 @@ class PhysicsChaptersScreen extends StatelessWidget {
 
   Widget _buildAppBar(BuildContext context, bool isDesktop) {
     return SliverAppBar(
-      expandedHeight: isDesktop ? 180 : 150,
-      collapsedHeight: 85,
-      toolbarHeight: 85,
+      expandedHeight: 100,
+      collapsedHeight: 70,
       pinned: true,
+      centerTitle: true,
       backgroundColor: const Color(0xFF003366),
+      elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
         onPressed: () => Navigator.pop(context),
       ),
-      actions: [
-        IconButton(
-            icon: const Icon(Icons.search, color: Colors.white, size: 20),
-            onPressed: () {}),
-        if (isDesktop) const SizedBox(width: 20),
-      ],
-      flexibleSpace: SafeArea(
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: Colors.blueAccent,
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Text('AI PRO',
-                      style: TextStyle(
-                        fontSize: isDesktop ? 11 : 9,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      )),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Physics Chapters',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: isDesktop ? 34 : 24,
+      flexibleSpace: FlexibleSpaceBar(
+        centerTitle: true,
+        titlePadding: const EdgeInsets.only(bottom: 12),
+        title: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Physics Chapters',
+                style: TextStyle(
                     color: Colors.white,
-                    letterSpacing: 0.5,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18)),
+            const SizedBox(height: 2),
+            Text('${chapters.length} Chapters available',
+                style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ChapterExpandableCard extends StatefulWidget {
+  final Map<String, dynamic> chapter;
+  final bool isDesktop;
+
+  const ChapterExpandableCard(
+      {super.key, required this.chapter, required this.isDesktop});
+
+  @override
+  State<ChapterExpandableCard> createState() => _ChapterExpandableCardState();
+}
+
+class _ChapterExpandableCardState extends State<ChapterExpandableCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PdfViewerScreen(
+                    pdfUrl: widget.chapter['pdfUrl'],
+                    chapterTitle: widget.chapter['title'],
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '7 Chapters available',
-                  style: TextStyle(
-                      fontSize: isDesktop ? 14 : 12, color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChapterTile(
-      BuildContext context, Map<String, String> chapter, bool isDesktop) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1D21),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4))
-        ],
-      ),
-      child: ListTile(
-        contentPadding:
-            EdgeInsets.symmetric(horizontal: isDesktop ? 30 : 20, vertical: 15),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
-          child: Center(
-            child: Text(chapter['id']!,
-                style: const TextStyle(
-                    color: Colors.blueAccent,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18)),
-          ),
-        ),
-        title: Text(chapter['title']!,
-            style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18)),
-        subtitle: Text(chapter['subtitle']!,
-            style: const TextStyle(color: Colors.white54, fontSize: 13)),
-        trailing: const Icon(Icons.arrow_forward_ios,
-            color: Colors.white24, size: 18),
-
-        // 👇 This now smoothly transitions to your custom PDF Viewer Screen!
-        onTap: () {
-          final String? pdfUrl = chapter['pdfUrl'];
-
-          if (pdfUrl != null && pdfUrl.isNotEmpty) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PdfViewerScreen(
-                  pdfUrl: pdfUrl,
-                  chapterTitle: chapter['title']!,
-                ),
-              ),
-            );
-          } else {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Textbook not uploaded yet!')),
               );
-            }
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildAIQuizCard(bool isDesktop) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding:
-            EdgeInsets.symmetric(horizontal: isDesktop ? 40 : 20, vertical: 20),
-        child: Container(
-          padding: const EdgeInsets.all(35),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF003366), Color(0xFF001122)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(35),
-            border: Border.all(color: Colors.blue.withOpacity(0.2)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('AI ASSESSMENT',
-                        style: TextStyle(
-                            color: Colors.cyanAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2)),
-                    const SizedBox(height: 12),
-                    const Text('Ready for the Final Quiz?',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    const Text(
-                        'Test your knowledge with AI-generated questions.',
-                        style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  ],
-                ),
+            },
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1D21),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.05)),
               ),
-              const SizedBox(width: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15)),
-                ),
-                onPressed: () {},
-                child: const Text('Start Now →',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-              )
-            ],
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.blue.withOpacity(0.1),
+                    child: Text(widget.chapter['id'],
+                        style: const TextStyle(
+                            color: Colors.blueAccent,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(widget.chapter['title'],
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16)),
+                        Text(widget.chapter['subtitle'],
+                            style: const TextStyle(
+                                color: Colors.white54, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios,
+                      color: Colors.white24, size: 16),
+                ],
+              ),
+            ),
           ),
-        ),
+          GestureDetector(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Container(
+              margin: const EdgeInsets.only(right: 15),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF003366),
+                borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12)),
+                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.note_alt, color: Colors.amber, size: 14),
+                  const SizedBox(width: 6),
+                  const Text('Quick Note',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 4),
+                  Icon(
+                      _isExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: Colors.white,
+                      size: 14),
+                ],
+              ),
+            ),
+          ),
+          if (_isExpanded)
+            Container(
+              margin: const EdgeInsets.only(top: 10, left: 10, right: 10),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Column(
+                children: (widget.chapter['subTopics'] as List).map((topic) {
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.circle,
+                        size: 6, color: Colors.blueAccent),
+                    title: Text(topic['title'],
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 13)),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MarkdownViewerScreen(
+                            url: topic['url'],
+                            title: topic['title'],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
       ),
     );
   }

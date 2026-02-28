@@ -12,15 +12,26 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   url_launcher: ^6.3.1 
-  syncfusion_flutter_pdfviewer: ^24.2.3
+  flutter_markdown: ^0.7.5
+  
+  # Network & API
+  http: ^1.2.0  # Required for downloading PDFs from CDN
+  google_generative_ai: ^0.4.7
+  
+  # PDF Engines
+  pdfrx: ^1.0.10  # Required for rendering pages to images for AI Pre-analysis
+  syncfusion_flutter_pdfviewer: ^24.2.3 # Keep this if you use it elsewhere
+  
+  # Firebase & State Management
   firebase_core: ^3.0.0
   cloud_firestore: ^5.0.0
   cloud_functions: ^5.1.0
   flutter_riverpod: ^2.5.1
-  go_router: ^13.2.0
-  google_generative_ai: ^0.4.7
-  image_picker: ^1.0.7
   riverpod_annotation: ^2.3.5
+  go_router: ^13.2.0
+  
+  # Utilities
+  image_picker: ^1.0.7
 
 dev_dependencies:
   flutter_test:
@@ -33,3 +44,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+
+dependency_overrides:
+  path_provider_foundation: 2.5.0
+  objective_c: 2.0.0

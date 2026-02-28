@@ -12,7 +12,7 @@ const String _apiKey = 'YOUR_API_KEY';
 RagService ragService(RagServiceRef ref) {
   return RagService(
     firestore: FirebaseFirestore.instance,
-    model: GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey),
+    model: GenerativeModel(model: 'gemini-2.0-flash', apiKey: _apiKey),
     embeddingModel:
         GenerativeModel(model: 'text-embedding-004', apiKey: _apiKey),
   );

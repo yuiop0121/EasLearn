@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:edupulse_ai/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:edupulse_ai/features/chat/presentation/chat_screen.dart';
 import 'package:edupulse_ai/features/grading/presentation/grading_screen.dart';
-import 'package:edupulse_ai/features/memory_bank/presentation/memory_bank_screen.dart';
+import 'package:edupulse_ai/features/question_bank/presentation/question_bank.dart';
 import 'package:edupulse_ai/core/widgets/scaffold_with_navigation.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -44,12 +44,12 @@ final GoRouter appRouter = GoRouter(
             ),
           ],
         ),
-        // Memory Bank
+        // Question Bank
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/memory-bank',
-              builder: (context, state) => const MemoryBankScreen(),
+              path: '/question-bank',
+              builder: (context, state) => const QuestionBankPage(),
             ),
           ],
         ),

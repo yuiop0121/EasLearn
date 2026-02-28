@@ -51,11 +51,11 @@ RULES:
 2. If the data is missing, admit you don't know and suggest related syllabus topics.
 3. Be encouraging but rigorous.
 4. Reference the student's past mistakes to help them avoid repeating them.
-5. Use gemini-2.5-flash capabilities for high-speed, accurate reasoning.
+5. Use gemini-2.0-flash capabilities for high-speed, accurate reasoning.
 ''';
 
     _model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       apiKey: AppConstants.geminiApiKey,
       systemInstruction: Content.system(systemInstruction),
     );
@@ -71,7 +71,7 @@ RULES:
       final response = await session.sendMessage(Content.text(message));
       return response.text ?? "I'm having trouble thinking right now.";
     } catch (e) {
-      // If gemini-2.5-flash still errors, we catch it here
+      // If gemini-2.0-flash still errors, we catch it here
       return "AI Connection Error: $e. Please verify model string reliability.";
     }
   }

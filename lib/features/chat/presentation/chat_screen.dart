@@ -17,7 +17,7 @@ class _ChatScreenState extends State<ChatScreen> {
     {
       "isUser": false,
       "message":
-          "Hello! I am EduPulse AI. I've indexed your textbooks and mistake logs. How can I help you today?",
+          "Hello! I am EasLearn AI. I've indexed your textbooks and mistake logs. How can I help you today?",
       "timestamp": "Now",
     },
   ];
@@ -114,7 +114,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: Padding(
                       padding: EdgeInsets.only(left: 16, bottom: 8),
                       child: Text(
-                        "EduPulse is thinking...",
+                        "EasLearn AI is thinking...",
                         style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12,
@@ -160,7 +160,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           const SizedBox(width: 8),
           Text(
-            'EDUPULSE AI ASSISTANT',
+            'EASLEARN AI ASSISTANT',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: AppColors.primaryBlue,
                   fontWeight: FontWeight.bold,
@@ -232,7 +232,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           controller: _controller,
                           style: const TextStyle(color: Colors.white),
                           decoration: const InputDecoration(
-                            hintText: "Ask EduPulse anything...",
+                            hintText: "Ask EasLearn anything...",
                             hintStyle:
                                 TextStyle(color: AppColors.textSecondary),
                             border: InputBorder.none,
@@ -373,7 +373,7 @@ class ChatBubble extends StatelessWidget {
             right: isUser ? 48 : 0,
           ),
           child: Text(
-            isUser ? "You • $timestamp" : "EduPulse AI • $timestamp",
+            isUser ? "You • $timestamp" : "EasLearn AI • $timestamp",
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 10,
